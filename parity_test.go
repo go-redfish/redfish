@@ -12,7 +12,7 @@ import (
 // PARITY.md is a promise: every row is done, N/A or todo with a release, and a
 // done row names tests that exist. When the work is complete (allowTodo false),
 // a todo row fails this test.
-const allowTodo = true
+const allowTodo = false
 
 func TestParityTableIsHonest(t *testing.T) {
 	doc, err := os.ReadFile("PARITY.md")
