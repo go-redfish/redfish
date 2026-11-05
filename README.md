@@ -244,8 +244,43 @@ redfish ... update status /redfish/v1/TaskService/Tasks/1 --watch ; redfish ... 
   GetFirmwareUpdateCapabilities are errors; an ImageURI is validated and a custom part gets `text/plain` when no
   media type is given (the oracle raises); the oracle's "NSF" in the default protocol list is kept.
 
-The next release brings the last areas (Storage/Events/Certificates), adding its library functions, CLI commands and
-PARITY.md rows.
+## Storage (v0.9.0)
+
+The last five rows of [PARITY.md](PARITY.md): `GetStorageControllerInventory`, `GetDiskInventory` and
+`GetVolumeInventory` of `redfish_info`, `CreateVolume` and `DeleteVolumes` of `redfish_config`, and redfishtool's
+`SimpleStorage`. **Parity: 99/99** rows done (no N/A, no todo; `parity_test.go` now fails on a todo row).
+
+- **Library** (`storage.go`): `StorageControllerInventory`, `DiskInventory`, `VolumeInventory`, `CreateVolume`,
+  `DeleteVolumes`, and the pure `ParseController`, `ParseDrive`, `ParseVolume`, `BuildVolumePayload`,
+  `CheckVolumeRequest`. A 202 answer is returned as task monitors (`Outcome.Monitor`, and the new `Outcome.Monitors`
+  when a command made several requests).
+- **CLI**: `redfish storage controllers|disks|volumes` and `redfish storage volume create|delete`, with `--id` for
+  the system. `disks` reads Storage, else the Devices of SimpleStorage.
+
+```sh
+redfish ... storage controllers ; redfish ... storage disks ; redfish ... storage volumes
+redfish ... storage volume create --storage RAID1 --raid-type RAID1 --drive /redfish/v1/Systems/1/Storage/RAID1/Drives/Disk1 --drive /redfish/v1/Systems/1/Storage/RAID1/Drives/Disk2
+redfish ... storage volume delete --storage RAID1 --dry-run Vol1 ; redfish ... storage volume delete --storage RAID1 Vol1
+```
+
+- **Safety**: `volume delete` destroys data. Every volume is named by its Id: there is no delete-all (the oracle has
+  none either); the paths to delete are printed on stderr before the first DELETE, `--dry-run` deletes nothing, and
+  when one name is not a volume of the subsystem nothing is deleted. `--delete-none-volumes` of `create` (the oracle's
+  `storage_none_volume_deletion`) is never implied and prints what it deletes first. Decoders and validators are
+  fuzzed (`FuzzStorageReads`, `FuzzVolumeRequest`); reads are bounded (1024 resources a command); a drive must be a
+  path of the service.
+- **Mock**: neither mockup has a Storage resource, so both trees get `Storage/RAID1` (a Controllers collection with
+  SupportedRAIDTypes RAID0/1/5, four drives, volumes Vol1 and Vol0 of RAIDType None) and `Storage/AHCI` (the
+  deprecated StorageControllers array, one drive). A POST to a Volumes collection checks the RAID type, that the
+  drives belong to the subsystem and are free, and their number; 201, or 202 with `Options.AsyncVolumes`.
+  `Options.SimpleStorageOnly` leaves Storage out.
+- **Departures from the oracle**: the RAID type and the drives are checked against SupportedRAIDTypes and the
+  subsystem's Drives before the POST (the oracle leaves it to the service); `DeleteVolumes` with no Id is an error and
+  with an unknown Id deletes nothing (the oracle skips it and reports the volumes "deleted"); an empty
+  `storage_subsystem_id` is the only subsystem rather than an error; a drive or volume that cannot be read is an error
+  (the oracle raises); a missing Name or Id of a controller gets the oracle's "Controller N" name instead of a
+  KeyError; a system with both Storage and SimpleStorage is read through Storage only, which is what the oracle's code
+  does in effect (it tests the SimpleStorage link on a variable the Storage branch has overwritten).
 
 ## What it follows
 
@@ -285,7 +320,7 @@ Chassis v1.29.0 but still the one most BMCs serve).
 
 ## Status
 
-v0.8.0: the UpdateService commands; v0.7.0: the Accounts and Sessions commands; v0.6.0: the Managers commands, virtual media and logs; v0.5.0: the Chassis commands; v0.4.0: the Systems commands (library, CLI, second mock tree); v0.3.0: the generic client, the mock BMC and the CLI; v0.2.0 and before: the energy reader. Section
+v0.9.0: the Storage commands (parity 99/99); v0.8.0: the UpdateService commands; v0.7.0: the Accounts and Sessions commands; v0.6.0: the Managers commands, virtual media and logs; v0.5.0: the Chassis commands; v0.4.0: the Systems commands (library, CLI, second mock tree); v0.3.0: the generic client, the mock BMC and the CLI; v0.2.0 and before: the energy reader. Section
 numbers cited in the code are DSP0266 1.23.0's.
 
 **Performance.** `BenchmarkGet` (one resource of the mock over TLS keep-alive, client and mock in one process,
