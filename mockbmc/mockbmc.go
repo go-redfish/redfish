@@ -79,6 +79,12 @@ type Options struct {
 	// it optional on a 2xx), so that a client learns what is not allowed only
 	// from the 405.
 	OmitAllow bool
+	// MaxUpload bounds a multipart upload in bytes (default 8 MiB); a larger one is
+	// refused with 413 (update.go).
+	MaxUpload int
+	// ResetRequired makes the task of an update carry a Base.ResetRequired message
+	// that asks for a GracefulRestart of the first system.
+	ResetRequired bool
 }
 
 // BMC is the mock service. Handler serves it; it is safe for concurrent use.
@@ -94,7 +100,10 @@ type BMC struct {
 	metadata  []byte
 	tree      string
 	// Log records "METHOD path status" of every request, for tests.
-	log []string
+	log     []string
+	uploads []Upload
+	simple  []map[string]any
+	resets  []string
 }
 
 type task struct {
@@ -282,6 +291,8 @@ func (b *BMC) serve(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(data)
 	case strings.Contains(p, "/Actions/") && r.Method == http.MethodPost:
 		b.action(w, r, p)
+	case r.Method == http.MethodPost && p == pushPath && b.res[root+"/UpdateService"] != nil && b.res[root+"/UpdateService"]["MultipartHttpPushUri"] == pushPath:
+		b.push(w, r)
 	case r.Method == http.MethodGet || r.Method == http.MethodHead:
 		b.get(w, r, p)
 	case r.Method == http.MethodPut:
@@ -583,9 +594,18 @@ func (b *BMC) action(w http.ResponseWriter, r *http.Request, p string) {
 				if !present || len(allowed) == 0 {
 					continue
 				}
-				ok := false
-				for _, a := range allowed {
-					ok = ok || fmt.Sprint(a) == fmt.Sprint(got)
+				// An array parameter (Targets) is checked member by member.
+				gotList, isList := got.([]any)
+				if !isList {
+					gotList = []any{got}
+				}
+				ok := true
+				for _, g := range gotList {
+					found := false
+					for _, a := range allowed {
+						found = found || fmt.Sprint(a) == fmt.Sprint(g)
+					}
+					ok = ok && found
 				}
 				if !ok {
 					b.fail(w, http.StatusBadRequest, "", fmt.Sprintf("The value %v for the parameter %s is not in the list of acceptable values.", got, name), "Base.1.19.ActionParameterValueNotInList")
@@ -638,6 +658,7 @@ func (b *BMC) action(w http.ResponseWriter, r *http.Request, p string) {
 		w.WriteHeader(http.StatusNoContent)
 	case isAction(name, "Reset"):
 		rt, _ := in["ResetType"].(string)
+		b.resets = append(b.resets, p+" "+rt)
 		if strings.HasPrefix(resPath, root+"/Managers/") {
 			m["LastResetType"] = rt
 		}
@@ -653,14 +674,8 @@ func (b *BMC) action(w http.ResponseWriter, r *http.Request, p string) {
 			b.fail(w, http.StatusBadRequest, "", "ImageURI is required.", "Base.1.19.ActionParameterMissing")
 			return
 		}
-		b.nextTask++
-		tp := root + "/TaskService/Tasks/" + strconv.Itoa(b.nextTask)
-		b.tasks[tp] = &task{polls: b.opts.TaskPolls}
-		tm := map[string]any{"@odata.type": "#Task.v1_7_3.Task", "Id": strconv.Itoa(b.nextTask), "Name": "Update", "TaskState": "Running", "TaskStatus": "OK", "PercentComplete": 0}
-		b.addMember(root+"/TaskService/Tasks", tp, tm)
-		w.Header().Set("Location", tp)
-		w.Header().Set("Retry-After", "1")
-		writeJSON(w, http.StatusAccepted, tm, "")
+		b.simple = append(b.simple, in)
+		b.newTask(w)
 	default:
 		w.WriteHeader(http.StatusNoContent)
 	}

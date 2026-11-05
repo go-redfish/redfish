@@ -1,0 +1,6 @@
+go test fuzz v1
+[]byte("0")
+string("0")
+string("0")
+string("\v0")
+string("")

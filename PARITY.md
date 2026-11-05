@@ -53,9 +53,9 @@ go-redfish is meant to do everything the three Ansible modules `redfish_command`
 | redfish_command | Manager | PowerGracefulRestart | `Client.ManagerPower` | `managers power PowerGracefulRestart` | `TestManagerPower`, `TestManagersReadsAndReset` | done |
 | redfish_command | Manager | PowerGracefulShutdown | `Client.ManagerPower` | `managers power PowerGracefulShutdown` | `TestManagerPower`, `TestManagersReadsAndReset` | done |
 | redfish_command | Manager | PowerReboot | `Client.ManagerPower` | `managers power PowerReboot` | `TestManagerPower`, `TestManagersReadsAndReset` | done |
-| redfish_command | Update | SimpleUpdate |  |  |  | todo (v0.8.0 Update) |
-| redfish_command | Update | MultipartHTTPPushUpdate |  |  |  | todo (v0.8.0 Update) |
-| redfish_command | Update | PerformRequestedOperations |  |  |  | todo (v0.8.0 Update) |
+| redfish_command | Update | SimpleUpdate | `Client.SimpleUpdate`, `CheckImageURI` | `update simple` | `TestSimpleUpdate`, `TestSimpleUpdateRefusals`, `TestUpdateCommands`, `FuzzCheckImageURI` | done |
+| redfish_command | Update | MultipartHTTPPushUpdate | `Client.MultipartHTTPPushUpdate`, `MultipartFrame` | `update push` | `TestMultipartPush`, `TestMultipartPushStreams`, `TestMultipartPushRefusals`, `TestUpdatePushCommand`, `FuzzMultipartFrame` | done |
+| redfish_command | Update | PerformRequestedOperations | `Client.PerformRequestedOperations` | `update operations` | `TestPerformRequestedOperations`, `TestUpdateOperationsCommand` | done |
 | redfish_config | Systems | SetBiosDefaultSettings | `Client.ResetBios` | `systems bios reset` | `TestBios`, `TestSystemsBios` | done |
 | redfish_config | Systems | SetBiosAttributes | `Client.SetBiosAttributes` | `systems bios set` | `TestBios`, `TestSystemsBios` | done |
 | redfish_config | Systems | SetBootOrder | `Client.SetBootOrder` | `systems boot-order set` | `TestBootOrder`, `TestSystemsBoot` | done |
@@ -96,10 +96,10 @@ go-redfish is meant to do everything the three Ansible modules `redfish_command`
 | redfish_info | Accounts | ListUsers | `Client.ListUsers` | `accounts list` | `TestAccountLifecycle`, `TestAccountsCommands`, `FuzzAccountReads` | done |
 | redfish_info | Accounts | GetAccountServiceConfig | `Client.AccountServiceConfig` | `accounts config` | `TestAccountServiceConfig`, `TestAccountsCommands` | done |
 | redfish_info | Sessions | GetSessions | `Client.GetSessions` | `session list` | `TestSessions`, `TestSessionCommands` | done |
-| redfish_info | Update | GetFirmwareInventory |  |  |  | todo (v0.8.0 Update) |
-| redfish_info | Update | GetFirmwareUpdateCapabilities |  |  |  | todo (v0.8.0 Update) |
-| redfish_info | Update | GetSoftwareInventory |  |  |  | todo (v0.8.0 Update) |
-| redfish_info | Update | GetUpdateStatus |  |  |  | todo (v0.8.0 Update) |
+| redfish_info | Update | GetFirmwareInventory | `Client.FirmwareInventory` | `update inventory` | `TestUpdateInventories`, `TestUpdateCommands`, `FuzzUpdateReads` | done |
+| redfish_info | Update | GetFirmwareUpdateCapabilities | `Client.FirmwareUpdateCapabilities`, `ParseUpdateCapabilities` | `update capabilities` | `TestFirmwareUpdateCapabilities`, `TestUpdateCommands`, `FuzzUpdateReads` | done |
+| redfish_info | Update | GetSoftwareInventory | `Client.SoftwareInventory` | `update inventory --software` | `TestUpdateInventories`, `TestUpdateCommands`, `FuzzUpdateReads` | done |
+| redfish_info | Update | GetUpdateStatus | `Client.UpdateStatus`, `Client.WaitUpdate`, `ParseUpdateStatus` | `update status` | `TestUpdateStatusAndHandles`, `TestParseUpdateStatus`, `TestUpdateCommands`, `FuzzOperationResults` | done |
 | redfish_info | Manager | GetManagerNicInventory | `Client.ManagerNICInventory`, `Client.EachManager` | `managers nic get` | `TestManagerNICs`, `TestManagersReadsAndReset` | done |
 | redfish_info | Manager | GetVirtualMedia | `Client.VirtualMedia` | `managers virtual-media get` | `TestVirtualMedia`, `TestLogsAndVirtualMediaCommands` | done |
 | redfish_info | Manager | GetLogs | `Client.Logs`, `ParseLogEntries` | `managers logs` | `TestLogsAndClearLogs`, `TestParseLogEntries`, `FuzzParseLogEntries`, `TestManagersReadsAndReset` | done |
@@ -130,5 +130,5 @@ go-redfish is meant to do everything the three Ansible modules `redfish_command`
 | `hello`, `about`, `examples` (developer commands) | N/A: they print redfishtool's own help | N/A |
 | `-W/--Wait`, `-C/--CheckRedfishVersion`, `-R/--RedfishVersion` | `Client.Root` reports RedfishVersion; the CLI does not wait for or select a protocol version: Redfish has one major version, v1, in the URL (DSP0266 7.2.3) | N/A |
 | `-A None|Basic|Session`, `-S Secure` | basic and session are `--password-file` and `session login`; "None" and non-https are refused on purpose (DSP0266 13.3.3: basic needs HTTPS; a password is never sent in clear) | N/A |
-| `-N/--NonBlocking` | a task monitor is returned, not awaited, unless `--watch` is given (`Client.WaitTask`) | todo (v0.8.0 Update) |
+| `-N/--NonBlocking` | a task monitor is returned, not awaited, unless `--watch` is given: `update simple`, `update push` and `update status` (`Client.WaitTask`, `Client.WaitUpdate`; `TestUpdateCommands`, `TestUpdatePushCommand`) | done |
 | `-I/-M/-F/-1/-L` (select a member) | each area command takes `--id` or picks the only member; several members and no `--id` is `ErrAmbiguous` (`systems --id`, `chassis --id`, `managers --id`; `TestResolveAmbiguous`, `TestManagerResolveInventoryHealth`) | done for Systems, Chassis and Managers (the other areas follow with their release) |

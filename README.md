@@ -204,8 +204,48 @@ redfish ... session list ; redfish ... session clear ; redfish ... session confi
   failure is not; the Sessions collection falls back to the default path when the root has no `Links.Sessions`;
   `ClearSessions` reads the members, not `Members@odata.count`, and ends its own session last.
 
-The next releases bring one area each (Update, Storage/Events/Certificates),
-each adding its library functions, CLI commands and PARITY.md rows.
+## UpdateService (v0.8.0)
+
+The Update commands of `redfish_command` (SimpleUpdate, MultipartHTTPPushUpdate, PerformRequestedOperations) and
+`redfish_info` (GetFirmwareInventory, GetSoftwareInventory, GetFirmwareUpdateCapabilities, GetUpdateStatus), and
+redfishtool's `-N/--NonBlocking`:
+
+- **Library** (`update.go`): `SimpleUpdate`, `MultipartHTTPPushUpdate`, `UpdateStatus`, `WaitUpdate`,
+  `PerformRequestedOperations`, `FirmwareInventory`, `SoftwareInventory`, `FirmwareUpdateCapabilities`, and the pure
+  decoders `ParseUpdateStatus`, `ParseUpdateCapabilities`, `CheckImageURI`, `MultipartFrame`. An update that starts a
+  task returns its monitor (`Outcome.Monitor`, `UpdateStatus.Handle`); `WaitUpdate` follows it.
+- **CLI**: `redfish update simple|push|status|operations|inventory [--software]|capabilities`. `simple`, `push` and
+  `status` take `--watch` (with `--poll`, `--watch-timeout`) to follow the task monitor, with the progress on stderr;
+  without it the monitor is returned and not awaited.
+
+```sh
+redfish ... update capabilities ; redfish ... update inventory ; redfish ... update inventory --software
+redfish ... update simple --image https://images.example/bios.bin --protocol HTTPS --image-password-file ~/.img-pw --watch
+redfish ... update push --file bmc-fw.bin --apply-time OnReset --max-size 1073741824 --watch
+redfish ... update status /redfish/v1/TaskService/Tasks/1 --watch ; redfish ... update operations /redfish/v1/TaskService/Tasks/1
+```
+
+- **Security**: `push` streams the image from the file (a known Content-Length, never read whole), accepts only a
+  regular file of at most `--max-size` (default 4 GiB; a larger file is `ErrImageTooLarge` before anything is sent) and
+  bounds the upload by `--upload-timeout`; the names of extra parts are validated against header injection. The
+  password of the image server is a `Secret` read from a 0600 file or the standard input, never a flag or the
+  environment, redacted from errors and from the messages of the result; an `ImageURI` that holds a password, or whose
+  scheme is not one of the service's `TransferProtocol` values, is refused, and the protocol, targets and apply time
+  are checked against the service's allowable values. The decoders are fuzzed (`FuzzOperationResults`,
+  `FuzzUpdateReads`, `FuzzCheckImageURI`, `FuzzMultipartFrame`).
+- **Mock**: `MultipartHttpPushUri` takes a bounded multipart upload (`Options.MaxUpload`, 413 above), a task, a
+  firmware and a software inventory, a `Targets` list for SimpleUpdate, and `Options.ResetRequired` (a
+  `Base.ResetRequired` message in the task). The emulator tree has no UpdateService.
+- **Departures from the oracle**: a 202 whose body is not a Task is `New` and keeps its handle (the oracle calls it
+  Completed and drops it); a `ResetRequired` reset is posted to the resource's Reset action when it has one (the
+  oracle posts to the resource itself, which services answer with 405) and only for a resource of the service; a
+  `ResetRequired` or job message without its arguments is ignored (the oracle raises); the top-level
+  `@Message.ExtendedInfo` of a success is read as well as the error object's; the oracle's `"ret": "False"` strings of
+  GetFirmwareUpdateCapabilities are errors; an ImageURI is validated and a custom part gets `text/plain` when no
+  media type is given (the oracle raises); the oracle's "NSF" in the default protocol list is kept.
+
+The next release brings the last areas (Storage/Events/Certificates), adding its library functions, CLI commands and
+PARITY.md rows.
 
 ## What it follows
 
@@ -245,7 +285,7 @@ Chassis v1.29.0 but still the one most BMCs serve).
 
 ## Status
 
-v0.7.0: the Accounts and Sessions commands; v0.6.0: the Managers commands, virtual media and logs; v0.5.0: the Chassis commands; v0.4.0: the Systems commands (library, CLI, second mock tree); v0.3.0: the generic client, the mock BMC and the CLI; v0.2.0 and before: the energy reader. Section
+v0.8.0: the UpdateService commands; v0.7.0: the Accounts and Sessions commands; v0.6.0: the Managers commands, virtual media and logs; v0.5.0: the Chassis commands; v0.4.0: the Systems commands (library, CLI, second mock tree); v0.3.0: the generic client, the mock BMC and the CLI; v0.2.0 and before: the energy reader. Section
 numbers cited in the code are DSP0266 1.23.0's.
 
 **Performance.** `BenchmarkGet` (one resource of the mock over TLS keep-alive, client and mock in one process,
