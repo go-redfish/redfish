@@ -417,7 +417,7 @@ func CheckImageURI(uri, protocol string, allowed []string) error {
 	if u.User != nil {
 		// A user name alone (scp://user@host/...) names the account; a password in
 		// a URI is a secret in a URL, refused.
-		if _, has := u.User.Password(); has || strings.Contains(uri, ":@") {
+		if _, has := u.User.Password(); has {
 			return errors.New("redfish: a password in the ImageURI is refused: use the password file or stdin option")
 		}
 	}
@@ -594,7 +594,10 @@ func MultipartFrame(params []byte, filename, customName, customMIME, customConte
 		case customMIME == "":
 			customMIME = "text/plain"
 		}
-		if _, _, err := mime.ParseMediaType(customMIME); err != nil || strings.ContainsAny(customMIME, "\r\n") {
+		// ParseMediaType trims white space and tolerates a control character at the
+		// ends: none is allowed in a header value we write.
+		bad := strings.IndexFunc(customMIME, func(r rune) bool { return r < 0x20 || r == 0x7f }) >= 0
+		if _, _, err := mime.ParseMediaType(customMIME); err != nil || bad || customMIME != strings.TrimSpace(customMIME) {
 			return nil, nil, "", fmt.Errorf("redfish: %q is not a media type", clipText(customMIME))
 		}
 		cw, err := part(customName, false, customMIME)

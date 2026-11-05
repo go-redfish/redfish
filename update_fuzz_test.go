@@ -83,7 +83,12 @@ func FuzzCheckImageURI(f *testing.F) {
 		if len(uri) > 2048 || strings.ContainsAny(uri, " \r\n\t\x00") {
 			t.Fatalf("accepted %q", uri)
 		}
-		if pw := passwordOf(uri); pw != "" || strings.Contains(uri, ":@") {
+		if u, err := url.Parse(uri); err == nil && u.User != nil {
+			if _, has := u.User.Password(); has {
+				t.Fatalf("accepted a password in %q", uri)
+			}
+		}
+		if pw := passwordOf(uri); pw != "" {
 			t.Fatalf("accepted a password in %q", uri)
 		}
 		if u, err := url.Parse(uri); err == nil && u.Scheme != "" {
