@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"EnergykWh\":{\"Reading\":1e999}}")
