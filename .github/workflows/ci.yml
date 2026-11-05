@@ -48,6 +48,10 @@ jobs:
           - {target: FuzzManagerReads, pkg: .}
           - {target: FuzzAccountReads, pkg: .}
           - {target: FuzzPasswordChangeURI, pkg: .}
+          - {target: FuzzOperationResults, pkg: .}
+          - {target: FuzzUpdateReads, pkg: .}
+          - {target: FuzzCheckImageURI, pkg: .}
+          - {target: FuzzMultipartFrame, pkg: .}
           - {target: FuzzReadPassword, pkg: ./cmd/redfish}
           - {target: FuzzPropFlags, pkg: ./cmd/redfish}
           - {target: FuzzRenderTable, pkg: ./cmd/redfish}
