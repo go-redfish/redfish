@@ -13,6 +13,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"syscall"
@@ -26,11 +27,20 @@ var osExit = os.Exit
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	if err := RootCmd().ExecuteContext(ctx); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+	if code := execute(ctx, RootCmd(), os.Stderr); code != 0 {
 		stop()
-		osExit(1)
+		osExit(code)
 	}
+}
+
+// execute runs the command and prints its error once, on stderr (the root
+// silences cobra's own print), returning the exit status.
+func execute(ctx context.Context, root *cobra.Command, stderr io.Writer) int {
+	if err := root.ExecuteContext(ctx); err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	return 0
 }
 
 // RootCmd returns the top-level cobra command. Exported so tests in the same
@@ -46,8 +56,9 @@ Connection flags are global. The password comes from a file (--password-file,
 mode 0600): there is no password flag and no environment variable. A session
 token (redfish session login) is kept in a 0600 file under the user's config
 directory and used with --session.`,
-		SilenceUsage: true,
-		Args:         cobra.NoArgs,
+		SilenceUsage:  true,
+		SilenceErrors: true, // main prints the error, once
+		Args:          cobra.NoArgs,
 	}
 	f := root.PersistentFlags()
 	f.StringVar(&g.endpoint, "endpoint", "", "the BMC's address, https://host[:port]")
@@ -55,9 +66,9 @@ directory and used with --session.`,
 	f.StringVar(&g.passwordFile, "password-file", "", "file holding the password (mode 0600)")
 	f.StringVar(&g.caFile, "ca-file", "", "PEM file of the CAs that sign the BMC's certificate (default: the system roots)")
 	f.BoolVar(&g.insecure, "insecure", false, "do not verify the BMC's certificate (explicit; warns on stderr)")
-	f.BoolVar(&g.session, "session", false, "use the session saved by `redfish session login`, not the password")
+	f.BoolVar(&g.session, "session", false, "use the session saved by 'redfish session login', not the password")
 	f.DurationVar(&g.timeout, "timeout", 0, "per-request timeout (default 10s)")
 	f.StringVarP(&g.output, "output", "o", "json", "output format: json or table")
-	root.AddCommand(sessionCmd(g), rawCmd(g), mockCmd(g))
+	root.AddCommand(sessionCmd(g), rawCmd(g), systemsCmd(g), chassisCmd(g), mockCmd(g))
 	return root
 }

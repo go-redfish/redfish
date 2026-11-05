@@ -403,3 +403,28 @@ func TestPagedChassisCollection(t *testing.T) {
 		t.Fatalf("%+v %v", rd, err)
 	}
 }
+
+// With several systems and none named, ResolveSystem and ResolveChassis say so
+// (ErrAmbiguous); naming one picks it, and an unknown id is ErrNotFound.
+func TestResolveAmbiguous(t *testing.T) {
+	r := routes(`{"Id":"1"}`, map[string]string{
+		"/redfish/v1/Systems":   `{"Members":[{"@odata.id":"/redfish/v1/Systems/A"},{"@odata.id":"/redfish/v1/Systems/B"}]}`,
+		"/redfish/v1/Systems/A": `{"Id":"A"}`,
+		"/redfish/v1/Systems/B": `{"Id":"B"}`,
+	})
+	r["/redfish/v1/"] = `{"Systems":{"@odata.id":"/redfish/v1/Systems"},"Chassis":{"@odata.id":"/redfish/v1/Chassis"}}`
+	c := newBMC(t, r).client(t, nil)
+	ctx := context.Background()
+	if _, err := c.ResolveSystem(ctx, ""); !errors.Is(err, ErrAmbiguous) || !strings.Contains(err.Error(), "/redfish/v1/Systems/B") {
+		t.Fatalf("ResolveSystem without an id: %v", err)
+	}
+	if _, err := c.ResolveChassis(ctx, ""); !errors.Is(err, ErrAmbiguous) {
+		t.Fatalf("ResolveChassis without an id: %v", err)
+	}
+	if u, err := c.ResolveSystem(ctx, "B"); err != nil || u != "/redfish/v1/Systems/B" {
+		t.Fatalf("ResolveSystem(B) = %q, %v", u, err)
+	}
+	if _, err := c.ResolveSystem(ctx, "C"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("an unknown id: %v", err)
+	}
+}

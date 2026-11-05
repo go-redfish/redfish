@@ -64,7 +64,43 @@ redfish ... raw patch /redfish/v1/Systems/1 --data '{"AssetTag":"rack-7"}' --if-
   default; `--insecure` is explicit and warns on stderr. `raw get|patch|put|post|delete|head` cover redfishtool's
   `raw`, and `root`, `versions`, `odata`, `metadata` are `raw get` of their paths.
 
-The next releases bring one area each (Systems, Chassis, Managers, Accounts, Update, Storage/Events/Certificates),
+## Systems (v0.4.0)
+
+The Systems commands of the three Ansible modules, ported from community.general's `redfish_utils` (the oracle,
+commit 33e521d6) and checked against both mock trees:
+
+- **Library** (`systems.go`): `ResolveSystem`/`ResolveChassis` (the one resource, or the one named by id, else
+  `ErrAmbiguous`); `SystemPower`/`ManagePower` (the `ResetType` the service allows, from its `ActionInfo` or
+  `AllowableValues`, nothing sent when the state is already the one asked); `SetBootOverride`, `BootOverrideOf`,
+  `BootOrder`, `SetBootOrder`, `SetDefaultBootOrder`; `BiosAttributes`, `SetBiosAttributes` (through the
+  `@Redfish.Settings` object, with an optional `ApplyTime`), `VerifyBiosAttributes`, `ResetBios`, `BiosRegistry`;
+  `SetSecureBoot`; `PowerRestorePolicy`/`SetPowerRestorePolicy`; `SetIndicatorLED`, `SetAssetTag`;
+  `SystemInventory`, `CPUInventory`, `MemoryInventory`, `NICInventory`, `PSUInventory`, `SystemHealthReport`.
+  A change is made with `PatchChecked`, which compares the payload with the resource first (`CheckPayload`):
+  an unchanged state is reported as such (`Outcome.Changed` false), a property the resource lacks is
+  `ErrUnsupported`. `ParseActionInfo`, `CheckPayload` and `Pick` are fuzzed.
+- **CLI**: `redfish systems [--id ID] ...` and `redfish chassis [--id ID] led ...`:
+
+```sh
+redfish ... systems list
+redfish ... systems power PowerForceOff                 # PowerOn, PowerReboot, PowerCycle, ...
+redfish ... systems boot-override set Pxe --once        # or --continuous; boot-override get, disable
+redfish ... systems boot-order get                      # boot-order set Boot0002 Boot0001, boot-order default
+redfish ... systems bios set --attr ProcTurboMode=Disabled --apply-time OnReset   # bios get, verify, reset, registry
+redfish ... systems secure-boot enable                  # or disable
+redfish ... systems power-restore-policy set AlwaysOn   # or get
+redfish ... systems led blink                           # on, off, blink; chassis led works the same
+redfish ... systems asset-tag rack-7
+redfish ... systems inventory cpu                       # system, cpu, memory, nic, psu
+redfish ... systems health
+```
+
+  With several systems and no `--id`, the command fails and lists them (`ErrAmbiguous`).
+- **Second mock tree**: `mockbmc.Options{Tree: mockbmc.TreeEmulator}` (`redfish mock serve --tree emulator-1u`) serves
+  the DMTF Redfish-Interface-Emulator 1U mockup beside the default *public-rackmount1*, so that no command is
+  tuned to one vendor tree; every Systems test runs on both.
+
+The next releases bring one area each (Chassis, Managers, Accounts, Update, Storage/Events/Certificates),
 each adding its library functions, CLI commands and PARITY.md rows.
 
 ## What it follows
@@ -99,13 +135,13 @@ An invalid `Interval` holds 0 and says why; it is not a measurement of 0.
 
 ## What it does not do
 
-No polling and no attribution: those belong to the caller (`Meter` only differences or integrates the reads it is given). It writes nothing to a BMC
-except a session login. It does not follow `PowerSubsystem` (the Power link it reads is deprecated in
+No polling and no attribution: those belong to the caller (`Meter` only differences or integrates the reads it is given). `Read` and `Meter` never
+write to a BMC; the Systems commands and the `raw` CLI do, only when you call them. It does not follow `PowerSubsystem` (the Power link it reads is deprecated in
 Chassis v1.29.0 but still the one most BMCs serve).
 
 ## Status
 
-v0.3.0: the generic client, the mock BMC and the CLI; v0.2.0 and before: the energy reader. Section
+v0.4.0: the Systems commands (library, CLI, second mock tree); v0.3.0: the generic client, the mock BMC and the CLI; v0.2.0 and before: the energy reader. Section
 numbers cited in the code are DSP0266 1.23.0's.
 
 **Performance.** `BenchmarkGet` (one resource of the mock over TLS keep-alive, client and mock in one process,

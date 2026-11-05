@@ -28,9 +28,11 @@ type env struct {
 	baseArgs []string
 }
 
-func newEnv(t *testing.T) *env {
+func newEnv(t *testing.T) *env { return newEnvTree(t, "") }
+
+func newEnvTree(t *testing.T, tree string) *env {
 	t.Helper()
-	b, err := mockbmc.New(mockbmc.Options{})
+	b, err := mockbmc.New(mockbmc.Options{Tree: tree})
 	if err != nil {
 		t.Fatal(err)
 	}
