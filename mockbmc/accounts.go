@@ -229,13 +229,13 @@ func (b *BMC) allowed(p string) string {
 	m := []string{"GET", "HEAD"}
 	if c := b.res[p]; c != nil {
 		_, coll := c["Members"]
-		if coll && creatable[p] && !(p == accountsRoot && b.opts.FixedSlots > 0) {
+		if coll && (creatable[p] || b.isVolumes(p)) && !(p == accountsRoot && b.opts.FixedSlots > 0) {
 			m = append(m, "POST")
 		}
 		if !coll {
 			m = append(m, "PATCH")
 			dir := path.Dir(p)
-			if _, parentColl := b.res[dir]["Members"]; parentColl && creatable[dir] && !(dir == accountsRoot && b.opts.FixedSlots > 0) {
+			if _, parentColl := b.res[dir]["Members"]; parentColl && (creatable[dir] || b.isVolumes(dir)) && !(dir == accountsRoot && b.opts.FixedSlots > 0) {
 				m = append(m, "DELETE")
 			}
 		}

@@ -85,6 +85,12 @@ type Options struct {
 	// ResetRequired makes the task of an update carry a Base.ResetRequired message
 	// that asks for a GracefulRestart of the first system.
 	ResetRequired bool
+	// SimpleStorageOnly leaves out the Storage resources the mock adds to a
+	// system, so that the tree has only the SimpleStorage of its mockup.
+	SimpleStorageOnly bool
+	// AsyncVolumes makes the creation and the deletion of a volume answer 202 with
+	// a task monitor (the change is made at once) instead of 201 and 204.
+	AsyncVolumes bool
 }
 
 // BMC is the mock service. Handler serves it; it is safe for concurrent use.
@@ -293,6 +299,10 @@ func (b *BMC) serve(w http.ResponseWriter, r *http.Request) {
 		b.action(w, r, p)
 	case r.Method == http.MethodPost && p == pushPath && b.res[root+"/UpdateService"] != nil && b.res[root+"/UpdateService"]["MultipartHttpPushUri"] == pushPath:
 		b.push(w, r)
+	case r.Method == http.MethodPost && b.isVolumes(p):
+		b.createVolume(w, r, p)
+	case r.Method == http.MethodDelete && b.res[p] != nil && b.isVolumes(path.Dir(p)):
+		b.deleteVolume(w, p)
 	case r.Method == http.MethodGet || r.Method == http.MethodHead:
 		b.get(w, r, p)
 	case r.Method == http.MethodPut:

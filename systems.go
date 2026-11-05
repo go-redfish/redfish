@@ -43,6 +43,9 @@ type Outcome struct {
 	Warning string
 	// Monitor is the task monitor when the service answered 202 (see WaitTask).
 	Monitor string
+	// Monitors are all the task monitors when a command made several requests
+	// that answered 202 (the volume commands); Monitor is one of them.
+	Monitors []string
 }
 
 func outcomeOf(r *Response, o Outcome) Outcome {

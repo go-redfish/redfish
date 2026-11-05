@@ -64,6 +64,7 @@ func (b *BMC) augment(tree string) {
 					"AllowableValues": []any{"ForceOn", "ForceOff", "GracefulShutdown", "GracefulRestart", "ForceRestart", "PushPowerButton", "PowerCycle"}}}}
 		}
 	}
+	b.augmentStorage()
 	b.augmentManagers(tree)
 	b.augmentUpdate(tree)
 }
