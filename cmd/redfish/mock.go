@@ -32,7 +32,7 @@ func mockCmd(g *globals) *cobra.Command {
 		Short: "Serve a DMTF mockup (--tree) over HTTPS (a test double: it keeps state in memory)",
 		Long: `serve starts a Redfish service on a self-signed certificate valid for 24 hours,
 writes the certificate to --ca-out (use it as --ca-file) and prints the endpoint.
-The user is admin; the password is in --password-file, else "password" (it is a
+The user is admin; the password is in --mock-password-file, else "password" (it is a
 test double, and says so). It stops on interrupt.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -45,7 +45,7 @@ test double, and says so). It stops on interrupt.`,
 				o.Password = pw
 			} else {
 				o.Password = "password"
-				fmt.Fprintln(cmd.ErrOrStderr(), `warning: no --password-file: the mock BMC accepts admin / password`)
+				fmt.Fprintln(cmd.ErrOrStderr(), `warning: no --mock-password-file: the mock BMC accepts admin / password`)
 			}
 			b, err := mockbmc.New(o)
 			if err != nil {

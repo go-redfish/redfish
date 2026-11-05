@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -35,7 +36,7 @@ type bmc struct {
 	caFile       string
 }
 
-func newBMC(t *testing.T, routes map[string]string) *bmc {
+func newBMC(t testing.TB, routes map[string]string) *bmc {
 	t.Helper()
 	b := &bmc{routes: routes, status: map[string]int{}, huge: map[string]bool{}, user: "admin", password: "s3cret"}
 	b.srv = httptest.NewTLSServer(http.HandlerFunc(b.serve))
@@ -110,7 +111,7 @@ func (b *bmc) serve(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(doc))
 }
 
-func (b *bmc) client(t *testing.T, mod func(*Config)) *Client {
+func (b *bmc) client(t testing.TB, mod func(*Config)) *Client {
 	t.Helper()
 	cfg := Config{BaseURL: b.srv.URL, Credentials: Static{User: "admin", Password: "s3cret"}, CAFile: b.caFile, Timeout: 5 * time.Second}
 	if mod != nil {
@@ -427,4 +428,53 @@ func TestResolveAmbiguous(t *testing.T) {
 	if _, err := c.ResolveSystem(ctx, "C"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("an unknown id: %v", err)
 	}
+}
+
+// The legacy resources a chassis lacks, and the HPE properties a chassis has.
+func TestChassisLegacyAbsenceAndHPE(t *testing.T) {
+	r := routes(`{"Id":"1","Oem":{"Hpe":{"ThermalConfiguration":"OptimalCooling","FanPercentMinimum":20}},"Thermal":{"@odata.id":"/redfish/v1/Chassis/1/Thermal"}}`, map[string]string{
+		"/redfish/v1/Chassis/1/Thermal": `{"Temperatures":[{"Name":"t","ReadingCelsius":null,"SensorNumber":4}]}`,
+	})
+	c := newBMC(t, r).client(t, nil)
+	ctx := context.Background()
+	if v, err := c.HPEThermalConfig(ctx); err != nil || v != "OptimalCooling" {
+		t.Errorf("HPEThermalConfig = %v, %v", v, err)
+	}
+	if v, err := c.HPEFanPercentMin(ctx, "/redfish/v1/Chassis/1"); err != nil || fmt.Sprint(v) != "20" {
+		t.Errorf("HPEFanPercentMin = %v, %v", v, err)
+	}
+	if th, err := c.ChassisThermals(ctx); err != nil || len(th) != 1 || th[0]["SensorNumber"] == nil || th[0]["ReadingCelsius"] != nil {
+		t.Errorf("a null reading is dropped: %v, %v", th, err)
+	}
+	if _, err := c.FanInventory(ctx); !errors.Is(err, ErrNotFound) {
+		t.Errorf("a Thermal without Fans: %v", err)
+	}
+	if _, err := c.ChassisPower(ctx); !errors.Is(err, ErrNotFound) {
+		t.Errorf("no chassis has Power: %v", err)
+	}
+	if _, err := c.ChassisPowerSubsystem(ctx, "/redfish/v1/Chassis/1"); !errors.Is(err, ErrUnsupported) {
+		t.Errorf("no PowerSubsystem: %v", err)
+	}
+}
+
+// Whatever a chassis and its Thermal and Power resources hold, the chassis
+// reads neither panic nor hang.
+func FuzzChassisReads(f *testing.F) {
+	f.Add(`{"Fans":[{"Name":"a"}],"Temperatures":[null,{"Name":1}],"PowerControl":[{"PowerConsumedWatts":3}],"PowerSupplies":[1]}`)
+	f.Add(`{"Fans":5,"Temperatures":"x","PowerControl":[[]]}`)
+	f.Add(`[]`)
+	b := newBMC(f, routes(`{"Thermal":{"@odata.id":"/redfish/v1/Chassis/1/Thermal"},"Power":{"@odata.id":"/redfish/v1/Chassis/1/Power"}}`, nil))
+	c := b.client(f, nil)
+	f.Fuzz(func(t *testing.T, doc string) {
+		b.mu.Lock()
+		b.routes["/redfish/v1/Chassis/1/Thermal"] = doc
+		b.routes["/redfish/v1/Chassis/1/Power"] = doc
+		b.mu.Unlock()
+		ctx := context.Background()
+		_, _ = c.FanInventory(ctx)
+		_, _ = c.ChassisPower(ctx)
+		_, _ = c.ChassisThermals(ctx)
+		_, _ = c.PSUInventory(ctx)
+		_, _ = c.ChassisHealthReports(ctx)
+	})
 }

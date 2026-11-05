@@ -233,3 +233,66 @@ func TestErrorIsPrintedOnce(t *testing.T) {
 	}
 	var _ *cobra.Command = root
 }
+
+func TestChassisCommands(t *testing.T) {
+	forEachTree(t, func(t *testing.T, e *env) {
+		for _, tc := range []struct {
+			args []string
+			want string
+		}{
+			{[]string{"chassis", "list"}, "/redfish/v1/Chassis/1U"},
+			{[]string{"chassis", "inventory"}, `"ChassisType"`},
+			{[]string{"chassis", "--id", "1U", "inventory"}, `"1U"`},
+			{[]string{"chassis", "fans"}, "BaseBoard System Fan"},
+			{[]string{"chassis", "power"}, "{"},
+			{[]string{"chassis", "thermals"}, "CPU1 Temp"},
+			{[]string{"chassis", "psu"}, `"Name"`},
+			{[]string{"chassis", "health"}, "chassis_uri"},
+			{[]string{"chassis", "sensors"}, "CPUFan1"},
+			{[]string{"chassis", "power-subsystem"}, "CapacityWatts"},
+			{[]string{"chassis", "thermal-subsystem"}, "ThermalMetrics"},
+			{[]string{"chassis", "metrics"}, "PowerWatts"},
+		} {
+			if out := e.ok(tc.args...); !strings.Contains(out, tc.want) {
+				t.Errorf("%v: %q lacks %q", tc.args, out, tc.want)
+			}
+		}
+		if out := e.ok("-o", "table", "chassis", "thermals"); !strings.Contains(out, "CPU1 Temp") || !strings.Contains(out, "Name") || strings.Contains(out, "map[") {
+			t.Errorf("table: %q", out)
+		}
+		for _, args := range [][]string{{"chassis", "hpe", "thermal-config"}, {"chassis", "hpe", "fan-percent-min"}, {"chassis", "--id", "nope", "sensors"}} {
+			if _, _, err := e.run(args...); err == nil {
+				t.Errorf("%v: want an error", args)
+			}
+		}
+	})
+}
+
+// -o table shows a list as a table, not as a Go slice.
+func TestTableOfAList(t *testing.T) {
+	e := newEnv(t)
+	out := e.ok("-o", "table", "systems", "list")
+	if strings.Contains(out, "[/redfish") || !strings.Contains(out, "VALUE") || !strings.Contains(out, sysPath) {
+		t.Errorf("systems list as a table: %q", out)
+	}
+	out = e.ok("-o", "table", "systems", "inventory", "cpu")
+	if strings.Contains(out, "map[") || !strings.Contains(out, "Manufacturer") {
+		t.Errorf("cpu table: %q", out)
+	}
+}
+
+// Help text names flags that exist.
+func TestMockHelpNamesItsFlags(t *testing.T) {
+	out, _, err := run(t, "mock", "serve", "--help")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "--mock-password-file") {
+		t.Errorf("the help does not name --mock-password-file: %q", out)
+	}
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, "--password-file") && !strings.Contains(line, "Global") && !strings.Contains(line, "file holding the password") {
+			t.Errorf("the mock's help names --password-file: %q", line)
+		}
+	}
+}

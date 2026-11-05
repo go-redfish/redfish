@@ -100,7 +100,33 @@ redfish ... systems health
   the DMTF Redfish-Interface-Emulator 1U mockup beside the default *public-rackmount1*, so that no command is
   tuned to one vendor tree; every Systems test runs on both.
 
-The next releases bring one area each (Chassis, Managers, Accounts, Update, Storage/Events/Certificates),
+## Chassis (v0.5.0)
+
+The chassis half of `redfish_info` (GetChassisInventory, GetFanInventory, GetChassisPower, GetChassisThermals,
+GetPsuInventory, GetHealthReport, GetHPEThermalConfig, GetHPEFanPercentMin), ported from community.general's
+`redfish_utils` and run against both mock trees, plus the resources that replace the deprecated Power and Thermal:
+
+- **Library** (`chassis.go`): `ChassisInventory`, `FanInventory`, `ChassisPower`, `ChassisThermals`,
+  `ChassisHealthReport(s)`, `HPEThermalConfig`, `HPEFanPercentMin` (a chassis list, or every chassis when none is
+  given, as the oracle does); `ChassisSensors` (the Sensor resources), `ChassisPowerSubsystem` (capacity,
+  allocation, the power supplies present), `ChassisThermalSubsystem` (fans and ThermalMetrics) and
+  `ChassisEnvironmentMetrics`. `SetIndicatorLED` serves chassis as well as systems. The reads of
+  `Meter` and `Read` are unchanged.
+- **CLI**: `redfish chassis [--id ID] ...`:
+
+```sh
+redfish ... chassis list
+redfish ... chassis inventory                 # fans, power, thermals, psu, health, hpe thermal-config, hpe fan-percent-min
+redfish ... chassis sensors                   # power-subsystem, thermal-subsystem, metrics
+redfish ... chassis led blink                 # on, off, blink
+redfish ... -o table chassis thermals         # a list is a table: one row per element
+```
+
+  The reading commands cover every chassis without `--id`; `led`, `sensors`, `power-subsystem`, `thermal-subsystem` and
+  `metrics` act on one chassis and fail with `ErrAmbiguous` when there are several and none is named.
+  `-o table` renders a list of objects as a table (it printed a Go slice in v0.4.0).
+
+The next releases bring one area each (Managers, Accounts, Update, Storage/Events/Certificates),
 each adding its library functions, CLI commands and PARITY.md rows.
 
 ## What it follows
@@ -141,7 +167,7 @@ Chassis v1.29.0 but still the one most BMCs serve).
 
 ## Status
 
-v0.4.0: the Systems commands (library, CLI, second mock tree); v0.3.0: the generic client, the mock BMC and the CLI; v0.2.0 and before: the energy reader. Section
+v0.5.0: the Chassis commands; v0.4.0: the Systems commands (library, CLI, second mock tree); v0.3.0: the generic client, the mock BMC and the CLI; v0.2.0 and before: the energy reader. Section
 numbers cited in the code are DSP0266 1.23.0's.
 
 **Performance.** `BenchmarkGet` (one resource of the mock over TLS keep-alive, client and mock in one process,
