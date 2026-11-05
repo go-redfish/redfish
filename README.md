@@ -37,9 +37,23 @@ through the `Credentials` interface; no error carries a credential; a reading th
 not finite or out of range is dropped. Errors are typed (`ErrAuth`, `ErrNotFound`, `ErrTooLarge`,
 `ErrMalformed`, `ErrNoReading`, `ErrInsecure`, `*StatusError`). The JSON decoders are fuzzed.
 
+## From reads to energy: Meter
+
+`Meter` turns the successive reads of one BMC into the energy used between them:
+
+- with an energy counter, the difference of two reads (exact, whatever the gap: a counter is cumulative);
+- with only a power, the trapezoid (P0 + P1) / 2 × dt between two samples, exact for a constant power. Two
+  samples further apart than `MaxGap` (default 5 minutes) are **not** joined: the power in between is
+  unknown, the interval is invalid and the caller falls back;
+- a counter that goes down (a BMC reboot) is never reported as a negative energy: the interval is invalid
+  (`ReasonReset`) and counting restarts from the new value;
+- a change of source between two reads (counter, then only power) is invalid too.
+
+An invalid `Interval` holds 0 and says why; it is not a measurement of 0.
+
 ## What it does not do
 
-No polling, no counters over time, no attribution: those belong to the caller. It writes nothing to a BMC
+No polling and no attribution: those belong to the caller (`Meter` only differences or integrates the reads it is given). It writes nothing to a BMC
 except a session login. It does not follow `PowerSubsystem` (the Power link it reads is deprecated in
 Chassis v1.29.0 but still the one most BMCs serve).
 
