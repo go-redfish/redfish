@@ -1,5 +1,11 @@
 # redfish
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/go-redfish/redfish.svg)](https://pkg.go.dev/github.com/go-redfish/redfish)
+[![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)
+[![CI](https://github.com/go-redfish/redfish/actions/workflows/ci.yml/badge.svg)](https://github.com/go-redfish/redfish/actions/workflows/ci.yml)
+
+**Part of [go-redfish](https://github.com/go-redfish)**: Go libraries for the Redfish API of a server's BMC. Documentation: <https://go-redfish.github.io/docs/>.
+
 A small, self-contained Go client for the [DMTF Redfish](https://www.dmtf.org/standards/redfish)
 API of a server's BMC, to read **what a node consumes**: the energy counter of its chassis
 (`EnvironmentMetrics.EnergykWh`), else its power. Standard library only (the CLI adds cobra).
