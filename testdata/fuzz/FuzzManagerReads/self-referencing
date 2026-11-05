@@ -1,0 +1,2 @@
+go test fuzz v1
+string("{\"Members\":[{\"@odata.id\":\"/redfish/v1/Managers/1/vm\"}],\"Entries\":{\"@odata.id\":\"/redfish/v1/Managers/1/logs\"},\"VirtualMedia\":{\"@odata.id\":\"/redfish/v1/Managers/1/vm\"},\"Image\":\"https://h/a.iso\",\"Inserted\":true,\"Actions\":{\"#VirtualMedia.EjectMedia\":{\"target\":\"/redfish/v1/Managers/1/vm\"}},\"Members@odata.nextLink\":\"/redfish/v1/Managers/1/vm\"}")

@@ -43,6 +43,10 @@ jobs:
           - {target: FuzzParseActionInfo, pkg: .}
           - {target: FuzzPick, pkg: .}
           - {target: FuzzChassisReads, pkg: .}
+          - {target: FuzzNetworkProtocolPayload, pkg: .}
+          - {target: FuzzParseLogEntries, pkg: .}
+          - {target: FuzzManagerReads, pkg: .}
+          - {target: FuzzPropFlags, pkg: ./cmd/redfish}
           - {target: FuzzRenderTable, pkg: ./cmd/redfish}
     steps:
       - uses: actions/checkout@v7

@@ -951,7 +951,7 @@ func (c *Client) MemoryInventory(ctx context.Context, systemURI string) ([]Props
 // NICInventory lists the EthernetInterfaces of a system or a manager that can
 // be read (get_nic_inventory).
 func (c *Client) NICInventory(ctx context.Context, resURI string) ([]Props, error) {
-	return c.memberProps(ctx, resURI, "EthernetInterfaces", []string{"Name", "Id", "Description", "FQDN", "IPv4Addresses", "IPv6Addresses", "NameServers", "MACAddress", "PermanentMACAddress", "SpeedMbps", "MTUSize", "AutoNeg", "Status", "LinkStatus"}, nil, true)
+	return c.memberProps(ctx, resURI, "EthernetInterfaces", nicProperties, nil, true)
 }
 
 // PSUInventory lists the power supplies of the chassis that are present, from

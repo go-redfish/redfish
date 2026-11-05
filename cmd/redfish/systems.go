@@ -82,7 +82,7 @@ func systemsCmd(g *globals) *cobra.Command {
 	var id string
 	cmd := &cobra.Command{
 		Use:   "systems",
-		Short: "Computer systems: power, boot, BIOS, secure boot, LED, inventories, health",
+		Short: "Computer systems: power, boot, BIOS, secure boot, LED, virtual media, logs, inventories, health",
 		Long: `systems drives the ComputerSystem resources of the service (the Systems
 commands of the Ansible modules redfish_command, redfish_config and redfish_info).
 With several systems, --id names the one to use (the last segment of its path);
@@ -312,6 +312,11 @@ null is sent as such, anything else as text.`,
 			return c.SetAssetTag(ctx, sys, a[0])
 		}),
 	})
+
+	// Virtual media and logs.
+	pickSystem := pickerOf(g, func(ctx context.Context, c *redfish.Client) (string, error) { return c.ResolveSystem(ctx, id) })
+	cmd.AddCommand(virtualMediaCmd(g, "system", pickSystem))
+	cmd.AddCommand(logsCmd(g, "system", pickSystem))
 
 	// Inventories and health.
 	inv := &cobra.Command{Use: "inventory", Short: "Inventories: system, cpu, memory, nic, psu", Args: cobra.NoArgs}
