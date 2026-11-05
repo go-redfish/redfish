@@ -39,6 +39,9 @@ jobs:
           - {target: FuzzMeter, pkg: .}
           - {target: FuzzParseError, pkg: .}
           - {target: FuzzParseTask, pkg: .}
+          - {target: FuzzCheckPayload, pkg: .}
+          - {target: FuzzParseActionInfo, pkg: .}
+          - {target: FuzzPick, pkg: .}
           - {target: FuzzRenderTable, pkg: ./cmd/redfish}
     steps:
       - uses: actions/checkout@v7

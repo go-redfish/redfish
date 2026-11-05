@@ -10,26 +10,26 @@ go-redfish is meant to do everything the three Ansible modules `redfish_command`
 
 | Module | Category | Command | go-redfish | CLI | Test | Status |
 |---|---|---|---|---|---|---|
-| redfish_command | Systems | PowerOn |  |  |  | todo (v0.4.0 Systems) |
-| redfish_command | Systems | PowerForceOff |  |  |  | todo (v0.4.0 Systems) |
-| redfish_command | Systems | PowerForceRestart |  |  |  | todo (v0.4.0 Systems) |
-| redfish_command | Systems | PowerGracefulRestart |  |  |  | todo (v0.4.0 Systems) |
-| redfish_command | Systems | PowerGracefulShutdown |  |  |  | todo (v0.4.0 Systems) |
-| redfish_command | Systems | PowerReboot |  |  |  | todo (v0.4.0 Systems) |
-| redfish_command | Systems | PowerCycle |  |  |  | todo (v0.4.0 Systems) |
-| redfish_command | Systems | PowerFullPowerCycle |  |  |  | todo (v0.4.0 Systems) |
-| redfish_command | Systems | SetOneTimeBoot |  |  |  | todo (v0.4.0 Systems) |
-| redfish_command | Systems | EnableContinuousBootOverride |  |  |  | todo (v0.4.0 Systems) |
-| redfish_command | Systems | DisableBootOverride |  |  |  | todo (v0.4.0 Systems) |
-| redfish_command | Systems | IndicatorLedOn |  |  |  | todo (v0.4.0 Systems) |
-| redfish_command | Systems | IndicatorLedOff |  |  |  | todo (v0.4.0 Systems) |
-| redfish_command | Systems | IndicatorLedBlink |  |  |  | todo (v0.4.0 Systems) |
+| redfish_command | Systems | PowerOn | `Client.SystemPower` | `systems power PowerOn` | `TestPowerCommands`, `TestSystemsListAndPower` | done |
+| redfish_command | Systems | PowerForceOff | `Client.SystemPower` | `systems power PowerForceOff` | `TestPowerCommands`, `TestSystemsListAndPower` | done |
+| redfish_command | Systems | PowerForceRestart | `Client.SystemPower` | `systems power PowerForceRestart` | `TestPowerCommands`, `TestSystemsListAndPower` | done |
+| redfish_command | Systems | PowerGracefulRestart | `Client.SystemPower` | `systems power PowerGracefulRestart` | `TestPowerCommands`, `TestSystemsListAndPower` | done |
+| redfish_command | Systems | PowerGracefulShutdown | `Client.SystemPower` | `systems power PowerGracefulShutdown` | `TestPowerCommands`, `TestSystemsListAndPower` | done |
+| redfish_command | Systems | PowerReboot | `Client.SystemPower` | `systems power PowerReboot` | `TestPowerCommands`, `TestSystemsListAndPower` | done |
+| redfish_command | Systems | PowerCycle | `Client.SystemPower` | `systems power PowerCycle` | `TestPowerCommands`, `TestSystemsListAndPower` | done |
+| redfish_command | Systems | PowerFullPowerCycle | `Client.SystemPower` | `systems power PowerFullPowerCycle` | `TestPowerCommands`, `TestSystemsListAndPower` | done |
+| redfish_command | Systems | SetOneTimeBoot | `Client.SetBootOverride` | `systems boot-override set DEVICE` | `TestBootOverride`, `TestSystemsBoot` | done |
+| redfish_command | Systems | EnableContinuousBootOverride | `Client.SetBootOverride` | `systems boot-override set DEVICE --continuous` | `TestBootOverride`, `TestSystemsBoot` | done |
+| redfish_command | Systems | DisableBootOverride | `Client.SetBootOverride` | `systems boot-override disable` | `TestBootOverride`, `TestSystemsBoot` | done |
+| redfish_command | Systems | IndicatorLedOn | `Client.SetIndicatorLED` | `systems led on` | `TestSecureBootPowerRestoreLedAndAssetTag`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
+| redfish_command | Systems | IndicatorLedOff | `Client.SetIndicatorLED` | `systems led off` | `TestSecureBootPowerRestoreLedAndAssetTag`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
+| redfish_command | Systems | IndicatorLedBlink | `Client.SetIndicatorLED` | `systems led blink` | `TestSecureBootPowerRestoreLedAndAssetTag`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
 | redfish_command | Systems | VirtualMediaInsert |  |  |  | todo (v0.6.0 Managers) |
 | redfish_command | Systems | VirtualMediaEject |  |  |  | todo (v0.6.0 Managers) |
-| redfish_command | Systems | VerifyBiosAttributes |  |  |  | todo (v0.4.0 Systems) |
-| redfish_command | Chassis | IndicatorLedOn |  |  |  | todo (v0.4.0 Systems) |
-| redfish_command | Chassis | IndicatorLedOff |  |  |  | todo (v0.4.0 Systems) |
-| redfish_command | Chassis | IndicatorLedBlink |  |  |  | todo (v0.4.0 Systems) |
+| redfish_command | Systems | VerifyBiosAttributes | `Client.VerifyBiosAttributes` | `systems bios verify` | `TestBios`, `TestSystemsBios` | done |
+| redfish_command | Chassis | IndicatorLedOn | `Client.SetIndicatorLED` | `chassis led on` | `TestSecureBootPowerRestoreLedAndAssetTag`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
+| redfish_command | Chassis | IndicatorLedOff | `Client.SetIndicatorLED` | `chassis led off` | `TestSecureBootPowerRestoreLedAndAssetTag`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
+| redfish_command | Chassis | IndicatorLedBlink | `Client.SetIndicatorLED` | `chassis led blink` | `TestSecureBootPowerRestoreLedAndAssetTag`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
 | redfish_command | Accounts | AddUser |  |  |  | todo (v0.7.0 Accounts) |
 | redfish_command | Accounts | EnableUser |  |  |  | todo (v0.7.0 Accounts) |
 | redfish_command | Accounts | DeleteUser |  |  |  | todo (v0.7.0 Accounts) |
@@ -56,35 +56,35 @@ go-redfish is meant to do everything the three Ansible modules `redfish_command`
 | redfish_command | Update | SimpleUpdate |  |  |  | todo (v0.8.0 Update) |
 | redfish_command | Update | MultipartHTTPPushUpdate |  |  |  | todo (v0.8.0 Update) |
 | redfish_command | Update | PerformRequestedOperations |  |  |  | todo (v0.8.0 Update) |
-| redfish_config | Systems | SetBiosDefaultSettings |  |  |  | todo (v0.4.0 Systems) |
-| redfish_config | Systems | SetBiosAttributes |  |  |  | todo (v0.4.0 Systems) |
-| redfish_config | Systems | SetBootOrder |  |  |  | todo (v0.4.0 Systems) |
-| redfish_config | Systems | SetDefaultBootOrder |  |  |  | todo (v0.4.0 Systems) |
-| redfish_config | Systems | EnableSecureBoot |  |  |  | todo (v0.4.0 Systems) |
-| redfish_config | Systems | SetSecureBoot |  |  |  | todo (v0.4.0 Systems) |
+| redfish_config | Systems | SetBiosDefaultSettings | `Client.ResetBios` | `systems bios reset` | `TestBios`, `TestSystemsBios` | done |
+| redfish_config | Systems | SetBiosAttributes | `Client.SetBiosAttributes` | `systems bios set` | `TestBios`, `TestSystemsBios` | done |
+| redfish_config | Systems | SetBootOrder | `Client.SetBootOrder` | `systems boot-order set` | `TestBootOrder`, `TestSystemsBoot` | done |
+| redfish_config | Systems | SetDefaultBootOrder | `Client.SetDefaultBootOrder` | `systems boot-order default` | `TestBootOrder`, `TestSystemsBoot` | done |
+| redfish_config | Systems | EnableSecureBoot | `Client.SetSecureBoot` | `systems secure-boot enable` | `TestSecureBootPowerRestoreLedAndAssetTag`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
+| redfish_config | Systems | SetSecureBoot | `Client.SetSecureBoot` | `systems secure-boot enable`, `systems secure-boot disable` | `TestSecureBootPowerRestoreLedAndAssetTag`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
 | redfish_config | Systems | DeleteVolumes |  |  |  | todo (v0.9.0 Storage) |
 | redfish_config | Systems | CreateVolume |  |  |  | todo (v0.9.0 Storage) |
-| redfish_config | Systems | SetPowerRestorePolicy |  |  |  | todo (v0.4.0 Systems) |
+| redfish_config | Systems | SetPowerRestorePolicy | `Client.SetPowerRestorePolicy` | `systems power-restore-policy set` | `TestSecureBootPowerRestoreLedAndAssetTag`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
 | redfish_config | Manager | SetNetworkProtocols |  |  |  | todo (v0.6.0 Managers) |
 | redfish_config | Manager | SetManagerNic |  |  |  | todo (v0.6.0 Managers) |
 | redfish_config | Manager | SetHostInterface |  |  |  | todo (v0.6.0 Managers) |
 | redfish_config | Manager | SetServiceIdentification |  |  |  | todo (v0.6.0 Managers) |
 | redfish_config | Sessions | SetSessionService |  |  |  | todo (v0.3.0 Sessions) |
-| redfish_info | Systems | GetSystemInventory |  |  |  | todo (v0.4.0 Systems) |
-| redfish_info | Systems | GetPsuInventory |  |  |  | todo (v0.4.0 Systems) |
-| redfish_info | Systems | GetCpuInventory |  |  |  | todo (v0.4.0 Systems) |
-| redfish_info | Systems | GetMemoryInventory |  |  |  | todo (v0.4.0 Systems) |
-| redfish_info | Systems | GetNicInventory |  |  |  | todo (v0.4.0 Systems) |
-| redfish_info | Systems | GetHealthReport |  |  |  | todo (v0.4.0 Systems) |
+| redfish_info | Systems | GetSystemInventory | `Client.SystemInventory` | `systems inventory system` | `TestInventories`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
+| redfish_info | Systems | GetPsuInventory | `Client.PSUInventory` | `systems inventory psu` | `TestInventories`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
+| redfish_info | Systems | GetCpuInventory | `Client.CPUInventory` | `systems inventory cpu` | `TestInventories`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
+| redfish_info | Systems | GetMemoryInventory | `Client.MemoryInventory` | `systems inventory memory` | `TestInventories`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
+| redfish_info | Systems | GetNicInventory | `Client.NICInventory` | `systems inventory nic` | `TestInventories`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
+| redfish_info | Systems | GetHealthReport | `Client.SystemHealthReport`, `Client.HealthReport` | `systems health` | `TestInventories`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
 | redfish_info | Systems | GetStorageControllerInventory |  |  |  | todo (v0.9.0 Storage) |
 | redfish_info | Systems | GetDiskInventory |  |  |  | todo (v0.9.0 Storage) |
 | redfish_info | Systems | GetVolumeInventory |  |  |  | todo (v0.9.0 Storage) |
-| redfish_info | Systems | GetBiosAttributes |  |  |  | todo (v0.4.0 Systems) |
-| redfish_info | Systems | GetBootOrder |  |  |  | todo (v0.4.0 Systems) |
-| redfish_info | Systems | GetBootOverride |  |  |  | todo (v0.4.0 Systems) |
+| redfish_info | Systems | GetBiosAttributes | `Client.BiosAttributes` | `systems bios get` | `TestBios`, `TestSystemsBios` | done |
+| redfish_info | Systems | GetBootOrder | `Client.BootOrder` | `systems boot-order get` | `TestBootOrder`, `TestSystemsBoot` | done |
+| redfish_info | Systems | GetBootOverride | `Client.BootOverrideOf` | `systems boot-override get` | `TestBootOverride`, `TestSystemsBoot` | done |
 | redfish_info | Systems | GetVirtualMedia |  |  |  | todo (v0.6.0 Managers) |
-| redfish_info | Systems | GetBiosRegistries |  |  |  | todo (v0.4.0 Systems) |
-| redfish_info | Systems | GetPowerRestorePolicy |  |  |  | todo (v0.4.0 Systems) |
+| redfish_info | Systems | GetBiosRegistries | `Client.BiosRegistry` | `systems bios registry` | `TestBios`, `TestSystemsBios` | done |
+| redfish_info | Systems | GetPowerRestorePolicy | `Client.PowerRestorePolicy` | `systems power-restore-policy get` | `TestSecureBootPowerRestoreLedAndAssetTag`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
 | redfish_info | Chassis | GetFanInventory |  |  |  | todo (v0.5.0 Chassis) |
 | redfish_info | Chassis | GetPsuInventory |  |  |  | todo (v0.5.0 Chassis) |
 | redfish_info | Chassis | GetChassisPower |  |  |  | todo (v0.5.0 Chassis) |
@@ -118,8 +118,8 @@ go-redfish is meant to do everything the three Ansible modules `redfish_command`
 | `raw GET|PATCH|POST|DELETE|HEAD|PUT` | `raw get|patch|post|delete|head|put` (`Client.Do`; `TestRawPatchPostDelete`, `TestRawPutHeadVersionsOdataMetadata`) | done |
 | `SessionService login`, `logout` | the Sessions rows above | done |
 | `SessionService setSessionTimeout`, `Sessions list`, `patch` | `SetSessionService`, `GetSessions` | todo (v0.3.0 Sessions) |
-| `Systems list|get|patch`, `Processors`, `Inventory`, `EthernetInterfaces`, `SimpleStorage` | the `Get*Inventory` rows (GetSystemInventory, GetCpuInventory, GetNicInventory, GetStorageControllerInventory) | todo (v0.4.0 Systems) |
-| `Systems reset`, `setAssetTag`, `setIndicatorLed`, `setBootOverride` | `PowerOn`...`PowerFullPowerCycle`, `IndicatorLed*`, `SetOneTimeBoot`, ...; setAssetTag has no Ansible row: added as a PATCH helper | todo (v0.4.0 Systems) |
+| `Systems list|get|patch`, `Processors`, `Inventory`, `EthernetInterfaces`, `SimpleStorage` | `systems list`, `systems inventory` (`system`, `cpu`, `memory`, `nic`, `psu`), `raw get`, `raw patch` (`TestSystemsListAndPower`, `TestInventories`); `SimpleStorage` is the GetStorageControllerInventory row | done, except `SimpleStorage` (todo v0.9.0 Storage) |
+| `Systems reset`, `setAssetTag`, `setIndicatorLed`, `setBootOverride` | `systems power`, `systems led`, `systems boot-override set`; `setAssetTag` has no Ansible row: added as `Client.SetAssetTag`, `systems asset-tag` (`TestPowerCommands`, `TestSecureBootPowerRestoreLedAndAssetTag`) | done |
 | `Systems Logs`, `clearLog`; Chassis and Managers likewise | `GetLogs`, `ClearLogs` | todo (v0.6.0 Managers) |
 | `Chassis Power`, `Thermal`, `Sensors`, `getPowerReading`, `setPowerLimit` | `GetChassisPower`, `GetChassisThermals`; Sensors and PowerSubsystem/EnvironmentMetrics are added (DSP8010 Chassis 1.29, the schemas the Meter already reads); `setPowerLimit` has no Ansible row | todo (v0.5.0 Chassis) |
 | `Managers reset`, `setDateTime`, `setTimeOffset`, `NetworkProtocol`, `EthernetInterfaces`, `SerialInterfaces` | `GracefulRestart`, `SetNetworkProtocols`, `SetManagerNic`, `GetNetworkProtocols`, `GetManagerNicInventory`; date and time added | todo (v0.6.0 Managers) |
@@ -128,4 +128,4 @@ go-redfish is meant to do everything the three Ansible modules `redfish_command`
 | `-W/--Wait`, `-C/--CheckRedfishVersion`, `-R/--RedfishVersion` | `Client.Root` reports RedfishVersion; the CLI does not wait for or select a protocol version: Redfish has one major version, v1, in the URL (DSP0266 7.2.3) | N/A |
 | `-A None|Basic|Session`, `-S Secure` | basic and session are `--password-file` and `session login`; "None" and non-https are refused on purpose (DSP0266 13.3.3: basic needs HTTPS; a password is never sent in clear) | N/A |
 | `-N/--NonBlocking` | a task monitor is returned, not awaited, unless `--watch` is given (`Client.WaitTask`) | todo (v0.8.0 Update) |
-| `-I/-M/-F/-1/-L` (select a member) | each area command takes `--id` or picks the only member | todo (v0.4.0 Systems) |
+| `-I/-M/-F/-1/-L` (select a member) | each area command takes `--id` or picks the only member; several members and no `--id` is `ErrAmbiguous` (`systems --id`, `chassis --id`; `TestResolveAmbiguous`) | done for Systems and Chassis (the other areas follow with their release) |
