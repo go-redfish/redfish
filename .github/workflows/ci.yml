@@ -33,7 +33,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [FuzzParseEnvironmentMetrics, FuzzParsePowerConsumed, FuzzMeter]
+        include:
+          - {target: FuzzParseEnvironmentMetrics, pkg: .}
+          - {target: FuzzParsePowerConsumed, pkg: .}
+          - {target: FuzzMeter, pkg: .}
+          - {target: FuzzParseError, pkg: .}
+          - {target: FuzzParseTask, pkg: .}
+          - {target: FuzzRenderTable, pkg: ./cmd/redfish}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v5
@@ -41,7 +47,7 @@ jobs:
           go-version: stable
           check-latest: true
       - name: fuzz
-        run: go test -run='^$' -fuzz='^${{ matrix.target }}$' -fuzztime=30s .
+        run: go test -run='^$' -fuzz='^${{ matrix.target }}$' -fuzztime=30s ${{ matrix.pkg }}
 
   govulncheck:
     runs-on: ubuntu-latest
