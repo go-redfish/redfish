@@ -44,14 +44,34 @@ var (
 	ErrInsecure = errors.New("redfish: the URL is not acceptable")
 )
 
-// StatusError is an answer with another status than 200 (or 201).
+// StatusError is an answer with another status than 200, 201, 202 or 204. It
+// carries what the service said: the error object's code and message and its
+// @Message.ExtendedInfo (DSP0266 9.5), decoded.
 type StatusError struct {
 	Method, Path string
 	Code         int
+	// ErrorCode and Message are the error object's "code" and "message".
+	ErrorCode, Message string
+	// Info is the @Message.ExtendedInfo of the error, in order.
+	Info []Message
 }
 
 func (e *StatusError) Error() string {
-	return fmt.Sprintf("redfish: %s %s answered %d", e.Method, e.Path, e.Code)
+	s := fmt.Sprintf("redfish: %s %s answered %d", e.Method, e.Path, e.Code)
+	switch {
+	case len(e.Info) > 0 && e.Info[0].Message != "":
+		s += ": " + clip(e.Info[0].Message)
+	case e.Message != "":
+		s += ": " + clip(e.Message)
+	}
+	return s
+}
+
+func clip(s string) string {
+	if len(s) > 200 {
+		return s[:200] + "..."
+	}
+	return s
 }
 
 // Credentials gives the user and password to authenticate with, when they are
@@ -79,6 +99,10 @@ type Config struct {
 	Chassis string
 	// Credentials authenticate every request.
 	Credentials Credentials
+	// Token resumes a session opened earlier (the X-Auth-Token it returned);
+	// SessionURI is its Session resource, for Close. With a Token, Credentials
+	// may be nil: nothing but the token is sent.
+	Token, SessionURI string
 	// Session, when true, logs in once (POST to the SessionService) and sends
 	// X-Auth-Token; otherwise HTTP basic authentication.
 	Session bool
@@ -133,13 +157,23 @@ func New(cfg Config) (*Client, error) {
 	if cfg.MetricsPath != "" && !strings.HasPrefix(cfg.MetricsPath, "/redfish/") {
 		return nil, fmt.Errorf("%w: the metrics path %q is not under /redfish/", ErrInsecure, cfg.MetricsPath)
 	}
-	if cfg.Credentials == nil {
+	if cfg.Credentials == nil && cfg.Token == "" {
 		return nil, errors.New("redfish: credentials are required: a BMC is never read without authentication")
+	}
+	if cfg.Credentials == nil {
+		cfg.Credentials = Static{}
+	}
+	if cfg.SessionURI != "" && sessionPath(cfg.SessionURI) == "" {
+		return nil, fmt.Errorf("%w: the session URI %q is not under /redfish/", ErrInsecure, cfg.SessionURI)
 	}
 	if cfg.Timeout <= 0 {
 		cfg.Timeout = DefaultTimeout
 	}
-	c := &Client{cfg: cfg, base: base}
+	c := &Client{cfg: cfg, base: base, token: cfg.Token}
+	if cfg.Token != "" {
+		c.location = sessionPath(cfg.SessionURI)
+		c.cfg.Session = true
+	}
 	hc := cfg.HTTP
 	if hc == nil {
 		tr := http.DefaultTransport.(*http.Transport).Clone()
@@ -174,6 +208,11 @@ func (c *Client) root() string {
 
 // request sends one request and returns its bounded body.
 func (c *Client) request(ctx context.Context, method, path string, body []byte, hdr map[string]string) ([]byte, http.Header, error) {
+	return c.requestStatus(ctx, method, path, body, hdr, nil)
+}
+
+// requestStatus is request, and stores the status of a successful answer.
+func (c *Client) requestStatus(ctx context.Context, method, path string, body []byte, hdr map[string]string, status *int) ([]byte, http.Header, error) {
 	if !strings.HasPrefix(path, "/") || strings.Contains(path, "://") {
 		return nil, nil, fmt.Errorf("%w: %q is not a path of this service", ErrMalformed, path)
 	}
@@ -237,8 +276,13 @@ func (c *Client) request(ctx context.Context, method, path string, body []byte, 
 		return nil, nil, fmt.Errorf("%w (%s %s answered %d)", ErrAuth, method, path, resp.StatusCode)
 	case resp.StatusCode == http.StatusNotFound:
 		return nil, nil, fmt.Errorf("%w (%s)", ErrNotFound, path)
-	case resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent:
-		return nil, nil, &StatusError{Method: method, Path: path, Code: resp.StatusCode}
+	case resp.StatusCode < 200 || resp.StatusCode >= 300:
+		se := &StatusError{Method: method, Path: path, Code: resp.StatusCode}
+		se.ErrorCode, se.Message, se.Info = ParseError(data)
+		return nil, nil, se
+	}
+	if status != nil {
+		*status = resp.StatusCode
 	}
 	return data, resp.Header, nil
 }

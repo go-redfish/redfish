@@ -2,7 +2,7 @@
 
 A small, self-contained Go client for the [DMTF Redfish](https://www.dmtf.org/standards/redfish)
 API of a server's BMC, to read **what a node consumes**: the energy counter of its chassis
-(`EnvironmentMetrics.EnergykWh`), else its power. Standard library only.
+(`EnvironmentMetrics.EnergykWh`), else its power. Standard library only (the CLI adds cobra).
 
 ```go
 c, err := redfish.New(redfish.Config{
@@ -20,6 +20,46 @@ if err == nil && r.EnergyKWh != nil {
 `Read` discovers the service once (service root, Chassis collection, each chassis' `EnvironmentMetrics`
 and `Power` links) and remembers the links. With `Config.MetricsPath` it reads that resource and nothing
 else. `Config.Session` logs in once and sends `X-Auth-Token` (`Close` logs out); otherwise HTTP Basic.
+
+## A Redfish client, and a CLI (v0.3.0)
+
+Beyond reading a node's consumption, go-redfish is becoming a **complete Redfish client** with a CLI to try it:
+the goal is parity with the Ansible modules `redfish_command`, `redfish_config` and `redfish_info`
+(community.general) and with DMTF redfishtool, tracked row by row in [PARITY.md](PARITY.md).
+
+v0.3.0 brings the generic layer and the tools to test it:
+
+- **`Client.Do`, `Get`, `Patch`, `Post`, `Delete`**: any operation on any path of the service, with `If-Match` on
+  the entity tag a read returned (412 when it changed), a 202 answer's task monitor (`Response.Location`,
+  `RetryAfter`, `Client.WaitTask`), and every error decoded: a non-2xx answer is a `*StatusError` carrying the
+  error object's code and message and its `@Message.ExtendedInfo` messages (`ParseError`, fuzzed). Paths are
+  `/redfish/...` only; a header cannot carry another credential; bodies are bounded.
+- **Sessions**: `Login`, `Session()` (the token and the Session resource) and `Config.Token`/`SessionURI` to
+  resume one; `Close` logs out.
+- **`mockbmc`**: the DMTF *public-rackmount1* mockup (DSP2043, BSD-3-Clause, vendored with its licence) behind an
+  `http.Handler` that is stateful enough to be driven like a BMC: authentication (Basic or token), sessions, ETags
+  and 412, PATCH, creating and deleting members, `ComputerSystem.Reset` checked against its AllowableValues, a
+  `SimpleUpdate` task with its monitor, and Redfish errors with ExtendedInfo.
+- **`cmd/redfish`**, a cobra CLI (`go install github.com/go-redfish/redfish/cmd/redfish@latest`):
+
+```sh
+redfish mock serve --ca-out /tmp/mock-ca.pem          # prints endpoint, user admin / password "password"
+echo -n password > ~/.mock-pw && chmod 600 ~/.mock-pw
+redfish --endpoint https://127.0.0.1:PORT --user admin --password-file ~/.mock-pw --ca-file /tmp/mock-ca.pem \
+        raw get /redfish/v1/Systems -o table
+redfish ... session login      # the token goes to a 0600 file under the config directory, never to the screen
+redfish --endpoint ... --ca-file ... --session raw get /redfish/v1/Chassis
+redfish ... session logout     # DELETE at the BMC, then the file is removed
+redfish ... raw patch /redfish/v1/Systems/1 --data '{"AssetTag":"rack-7"}' --if-match 'W/"..."'
+```
+
+  Flags: `--endpoint --user --password-file --ca-file --insecure --session --timeout -o json|table`. **There is no
+  password flag and no environment variable for a secret**; the password file must be mode 0600. TLS is verified by
+  default; `--insecure` is explicit and warns on stderr. `raw get|patch|put|post|delete|head` cover redfishtool's
+  `raw`, and `root`, `versions`, `odata`, `metadata` are `raw get` of their paths.
+
+The next releases bring one area each (Systems, Chassis, Managers, Accounts, Update, Storage/Events/Certificates),
+each adding its library functions, CLI commands and PARITY.md rows.
 
 ## What it follows
 
@@ -58,6 +98,13 @@ except a session login. It does not follow `PowerSubsystem` (the Power link it r
 Chassis v1.29.0 but still the one most BMCs serve).
 
 ## Status
+
+v0.3.0: the generic client, the mock BMC and the CLI; v0.2.0 and before: the energy reader. Section
+numbers cited in the code are DSP0266 1.23.0's.
+
+**Performance.** `BenchmarkGet` (one resource of the mock over TLS keep-alive, client and mock in one process,
+Apple M4 Max, one core): 291 allocations per read (exact). The time and the comparison with redfishtool on the
+same mock are **deferred**: the machine's 1-minute load was 12.6, above the limit of 8 for a measurement.
 
 Pre-1.0: the API may change in a minor version. Born in
 [go-llmflow/gateway](https://github.com/go-llmflow/gateway), which bills a node's energy from its BMC.

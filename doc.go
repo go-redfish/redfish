@@ -11,8 +11,11 @@
 //
 // Each rule below comes from a document opened on 2026-11-05.
 //
-//   - DSP0266 Redfish Specification 1.19.0 (dmtf.org/sites/default/files/
-//     standards/documents/DSP0266_1.19.0.pdf): the service root, by default
+//   - DSP0266 Redfish Specification 1.23.0, the newest found on 2026-11-05
+//     (dmtf.org/sites/default/files/standards/documents/DSP0266_1.23.0.pdf; its
+//     table of contents was opened: the section numbers cited in this package
+//     are 1.23.0's, and the text of the sections below was read in 1.19.0,
+//     whose numbering of 13.3 and 7.2.3 is the same): the service root, by default
 //     /redfish/v1/ (section 7.2.3); HTTP Basic authentication (13.3.3: "All
 //     requests that use HTTP Basic authentication shall require HTTPS"); login
 //     sessions (13.3.4: the Sessions collection is found in the service root's
