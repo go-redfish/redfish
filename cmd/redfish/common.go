@@ -182,6 +182,9 @@ func (g *globals) printDoc(w io.Writer, body []byte) error {
 // members.
 func renderTable(w io.Writer, v any) error {
 	tw := tabwriter.NewWriter(w, 0, 8, 2, ' ', 0)
+	if l, ok := v.([]any); ok {
+		return renderList(tw, l)
+	}
 	m, ok := v.(map[string]any)
 	if !ok {
 		fmt.Fprintf(tw, "%s\n", scalar(v))
@@ -213,6 +216,71 @@ func renderTable(w io.Writer, v any) error {
 		}
 	}
 	return tw.Flush()
+}
+
+// maxColumns bounds the columns of a table of objects.
+const maxColumns = 12
+
+// renderList shows an array: one VALUE column for scalars, else one row per
+// element and one column per property (the first maxColumns, sorted), a nested
+// value summarised as renderTable does.
+func renderList(tw *tabwriter.Writer, l []any) error {
+	objects := len(l) > 0
+	cols := map[string]bool{}
+	for _, x := range l {
+		m, ok := x.(map[string]any)
+		if !ok {
+			objects = false
+			break
+		}
+		for k := range m {
+			cols[k] = true
+		}
+	}
+	if !objects {
+		fmt.Fprintln(tw, "VALUE")
+		for _, x := range l {
+			switch x.(type) {
+			case map[string]any, []any:
+				fmt.Fprintln(tw, summary(x))
+			default:
+				fmt.Fprintln(tw, scalar(x))
+			}
+		}
+		return tw.Flush()
+	}
+	keys := make([]string, 0, len(cols))
+	for k := range cols {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	if len(keys) > maxColumns {
+		keys = keys[:maxColumns]
+	}
+	head := make([]string, len(keys))
+	for i, k := range keys {
+		head[i] = clean(k)
+	}
+	fmt.Fprintln(tw, strings.Join(head, "\t"))
+	for _, x := range l {
+		m := x.(map[string]any)
+		cells := make([]string, len(keys))
+		for i, k := range keys {
+			cells[i] = summary(m[k])
+		}
+		fmt.Fprintln(tw, strings.Join(cells, "\t"))
+	}
+	return tw.Flush()
+}
+
+func summary(v any) string {
+	switch x := v.(type) {
+	case map[string]any:
+		return fmt.Sprintf("{%d properties}", len(x))
+	case []any:
+		return fmt.Sprintf("[%d items]", len(x))
+	}
+	return scalar(v)
 }
 
 func scalar(v any) string {

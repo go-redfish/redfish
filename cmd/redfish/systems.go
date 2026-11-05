@@ -359,22 +359,3 @@ func ledCmd(g *globals, what string, pick func(*cobra.Command) (*redfish.Client,
 	}
 	return cmd
 }
-
-func chassisCmd(g *globals) *cobra.Command {
-	var id string
-	cmd := &cobra.Command{
-		Use:   "chassis",
-		Short: "Chassis: the indicator LED",
-		Args:  cobra.NoArgs,
-	}
-	cmd.PersistentFlags().StringVar(&id, "id", "", "the chassis to use (default: the only one)")
-	cmd.AddCommand(ledCmd(g, "chassis", func(cmd *cobra.Command) (*redfish.Client, string, error) {
-		c, err := g.client(cmd, false)
-		if err != nil {
-			return nil, "", err
-		}
-		u, err := c.ResolveChassis(cmd.Context(), id)
-		return c, u, err
-	}))
-	return cmd
-}

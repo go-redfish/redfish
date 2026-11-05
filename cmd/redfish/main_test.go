@@ -332,6 +332,7 @@ func FuzzRenderTable(f *testing.F) {
 	f.Add(`{"Name":"x","Members":[{"@odata.id":"/a","Name":"b"}]}`)
 	f.Add(`{"a":"\u001b[31mred","b":[1,2],"c":{"d":null}}`)
 	f.Add(`[1,"two"]`)
+	f.Add(`[{"a":1,"b":{"c":1}},{"d":[1],"\u001b[31m":"x"},{}]`)
 	f.Fuzz(func(t *testing.T, doc string) {
 		var b bytes.Buffer
 		g := &globals{output: "table"}

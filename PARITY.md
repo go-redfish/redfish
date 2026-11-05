@@ -85,14 +85,14 @@ go-redfish is meant to do everything the three Ansible modules `redfish_command`
 | redfish_info | Systems | GetVirtualMedia |  |  |  | todo (v0.6.0 Managers) |
 | redfish_info | Systems | GetBiosRegistries | `Client.BiosRegistry` | `systems bios registry` | `TestBios`, `TestSystemsBios` | done |
 | redfish_info | Systems | GetPowerRestorePolicy | `Client.PowerRestorePolicy` | `systems power-restore-policy get` | `TestSecureBootPowerRestoreLedAndAssetTag`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
-| redfish_info | Chassis | GetFanInventory |  |  |  | todo (v0.5.0 Chassis) |
-| redfish_info | Chassis | GetPsuInventory |  |  |  | todo (v0.5.0 Chassis) |
-| redfish_info | Chassis | GetChassisPower |  |  |  | todo (v0.5.0 Chassis) |
-| redfish_info | Chassis | GetChassisThermals |  |  |  | todo (v0.5.0 Chassis) |
-| redfish_info | Chassis | GetChassisInventory |  |  |  | todo (v0.5.0 Chassis) |
-| redfish_info | Chassis | GetHealthReport |  |  |  | todo (v0.5.0 Chassis) |
-| redfish_info | Chassis | GetHPEThermalConfig |  |  |  | todo (v0.5.0 Chassis) |
-| redfish_info | Chassis | GetHPEFanPercentMin |  |  |  | todo (v0.5.0 Chassis) |
+| redfish_info | Chassis | GetFanInventory | `Client.FanInventory` | `chassis fans` | `TestChassisOracleReads`, `TestChassisCommands` | done |
+| redfish_info | Chassis | GetPsuInventory | `Client.PSUInventory` | `chassis psu` | `TestChassisOracleReads`, `TestChassisCommands` | done |
+| redfish_info | Chassis | GetChassisPower | `Client.ChassisPower` | `chassis power` | `TestChassisOracleReads`, `TestChassisCommands` | done |
+| redfish_info | Chassis | GetChassisThermals | `Client.ChassisThermals` | `chassis thermals` | `TestChassisOracleReads`, `TestChassisCommands`, `TestChassisLegacyAbsenceAndHPE` | done |
+| redfish_info | Chassis | GetChassisInventory | `Client.ChassisInventory` | `chassis inventory` | `TestChassisOracleReads`, `TestChassisCommands` | done |
+| redfish_info | Chassis | GetHealthReport | `Client.ChassisHealthReports`, `Client.ChassisHealthReport` | `chassis health` | `TestChassisOracleReads`, `TestChassisCommands` | done |
+| redfish_info | Chassis | GetHPEThermalConfig | `Client.HPEThermalConfig` | `chassis hpe thermal-config` | `TestChassisLegacyAbsenceAndHPE`, `TestChassisCommands` | done |
+| redfish_info | Chassis | GetHPEFanPercentMin | `Client.HPEFanPercentMin` | `chassis hpe fan-percent-min` | `TestChassisLegacyAbsenceAndHPE`, `TestChassisCommands` | done |
 | redfish_info | Accounts | ListUsers |  |  |  | todo (v0.7.0 Accounts) |
 | redfish_info | Accounts | GetAccountServiceConfig |  |  |  | todo (v0.7.0 Accounts) |
 | redfish_info | Sessions | GetSessions |  |  |  | todo (v0.3.0 Sessions) |
@@ -121,7 +121,8 @@ go-redfish is meant to do everything the three Ansible modules `redfish_command`
 | `Systems list|get|patch`, `Processors`, `Inventory`, `EthernetInterfaces`, `SimpleStorage` | `systems list`, `systems inventory` (`system`, `cpu`, `memory`, `nic`, `psu`), `raw get`, `raw patch` (`TestSystemsListAndPower`, `TestInventories`); `SimpleStorage` is the GetStorageControllerInventory row | done, except `SimpleStorage` (todo v0.9.0 Storage) |
 | `Systems reset`, `setAssetTag`, `setIndicatorLed`, `setBootOverride` | `systems power`, `systems led`, `systems boot-override set`; `setAssetTag` has no Ansible row: added as `Client.SetAssetTag`, `systems asset-tag` (`TestPowerCommands`, `TestSecureBootPowerRestoreLedAndAssetTag`) | done |
 | `Systems Logs`, `clearLog`; Chassis and Managers likewise | `GetLogs`, `ClearLogs` | todo (v0.6.0 Managers) |
-| `Chassis Power`, `Thermal`, `Sensors`, `getPowerReading`, `setPowerLimit` | `GetChassisPower`, `GetChassisThermals`; Sensors and PowerSubsystem/EnvironmentMetrics are added (DSP8010 Chassis 1.29, the schemas the Meter already reads); `setPowerLimit` has no Ansible row | todo (v0.5.0 Chassis) |
+| `Chassis Power`, `Thermal`, `Sensors`, `getPowerReading`, `setPowerLimit` | `chassis power`, `chassis thermals` (`TestChassisOracleReads`); Sensors, PowerSubsystem, ThermalSubsystem and EnvironmentMetrics are added: `chassis sensors`, `power-subsystem`, `thermal-subsystem`, `metrics` (`TestChassisNewResources`; DSP8010 Chassis 1.29, the schemas the Meter already reads); `getPowerReading` is `chassis metrics` (PowerWatts) and `chassis power` (PowerConsumedWatts) | done |
+| `Chassis setPowerLimit` | N/A: it has no Ansible row, and the limit lives in an array of the deprecated Power resource (PowerControl[n].PowerLimit) or in a Controls resource, which services handle differently; `raw patch` sets it | N/A |
 | `Managers reset`, `setDateTime`, `setTimeOffset`, `NetworkProtocol`, `EthernetInterfaces`, `SerialInterfaces` | `GracefulRestart`, `SetNetworkProtocols`, `SetManagerNic`, `GetNetworkProtocols`, `GetManagerNicInventory`; date and time added | todo (v0.6.0 Managers) |
 | `AccountService adduser|deleteuser|setpassword|useradmin|setusername|Accounts|Roles` | the Accounts rows | todo (v0.7.0 Accounts) |
 | `hello`, `about`, `examples` (developer commands) | N/A: they print redfishtool's own help | N/A |
