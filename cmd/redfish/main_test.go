@@ -30,9 +30,11 @@ type env struct {
 
 func newEnv(t *testing.T) *env { return newEnvTree(t, "") }
 
-func newEnvTree(t *testing.T, tree string) *env {
+func newEnvTree(t *testing.T, tree string) *env { return newEnvOpts(t, mockbmc.Options{Tree: tree}) }
+
+func newEnvOpts(t *testing.T, o mockbmc.Options) *env {
 	t.Helper()
-	b, err := mockbmc.New(mockbmc.Options{Tree: tree})
+	b, err := mockbmc.New(o)
 	if err != nil {
 		t.Fatal(err)
 	}

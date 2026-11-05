@@ -273,7 +273,9 @@ func (c *Client) requestStatus(ctx context.Context, method, path string, body []
 			c.token, c.location = "", ""
 			c.mu.Unlock()
 		}
-		return nil, nil, fmt.Errorf("%w (%s %s answered %d)", ErrAuth, method, path, resp.StatusCode)
+		ae := &authError{method: method, path: path, code: resp.StatusCode}
+		_, _, ae.Info = ParseError(data)
+		return nil, nil, ae
 	case resp.StatusCode == http.StatusNotFound:
 		return nil, nil, fmt.Errorf("%w (%s)", ErrNotFound, path)
 	case resp.StatusCode < 200 || resp.StatusCode >= 300:
@@ -286,6 +288,19 @@ func (c *Client) requestStatus(ctx context.Context, method, path string, body []
 	}
 	return data, resp.Header, nil
 }
+
+// authError is ErrAuth with what the service said (PasswordChangeURI reads its
+// extended information); its text is the one ErrAuth always had.
+type authError struct {
+	method, path string
+	code         int
+	Info         []Message
+}
+
+func (e *authError) Error() string {
+	return fmt.Sprintf("%s (%s %s answered %d)", ErrAuth.Error(), e.method, e.path, e.code)
+}
+func (e *authError) Unwrap() error { return ErrAuth }
 
 // scrub keeps a credential out of an error.
 func scrub(err error, secrets ...string) error {

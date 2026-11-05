@@ -175,14 +175,14 @@ func TestPostCreatesAndDeleteRemovesAMember(t *testing.T) {
 	_, srv := newMock(t, mockbmc.Options{})
 	c := newClient(t, srv, redfish.Config{})
 	ctx := context.Background()
-	r, err := c.Post(ctx, "/redfish/v1/AccountService/Accounts", map[string]any{"UserName": "bob", "Password": "pw-bob", "RoleId": "Operator"})
+	r, err := c.Post(ctx, "/redfish/v1/AccountService/Accounts", map[string]any{"UserName": "bob", "Password": "pw-bob-1234", "RoleId": "Operator"})
 	if err != nil || r.Status != 201 || !strings.HasPrefix(r.Location(), "/redfish/v1/AccountService/Accounts/") {
 		t.Fatalf("create: %v %+v", err, r)
 	}
 	// The new account logs in; its password is not in the resource.
-	bob := newClient(t, srv, redfish.Config{Credentials: redfish.Static{User: "bob", Password: "pw-bob"}})
+	bob := newClient(t, srv, redfish.Config{Credentials: redfish.Static{User: "bob", Password: "pw-bob-1234"}})
 	g, err := bob.Get(ctx, r.Location())
-	if err != nil || strings.Contains(string(g.Body), "pw-bob") {
+	if err != nil || strings.Contains(string(g.Body), "pw-bob-1234") {
 		t.Fatalf("bob: %v %s", err, g.Body)
 	}
 	if _, err := c.Delete(ctx, r.Location(), ""); err != nil {
