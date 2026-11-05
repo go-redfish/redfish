@@ -29,7 +29,7 @@ func mockCmd(g *globals) *cobra.Command {
 	var pwFile string
 	serve := &cobra.Command{
 		Use:   "serve",
-		Short: "Serve the DMTF public-rackmount1 mockup over HTTPS (a test double: it keeps state in memory)",
+		Short: "Serve a DMTF mockup (--tree) over HTTPS (a test double: it keeps state in memory)",
 		Long: `serve starts a Redfish service on a self-signed certificate valid for 24 hours,
 writes the certificate to --ca-out (use it as --ca-file) and prints the endpoint.
 The user is admin; the password is in --password-file, else "password" (it is a
@@ -97,6 +97,7 @@ test double, and says so). It stops on interrupt.`,
 	serve.Flags().StringVar(&listen, "listen", "127.0.0.1:0", "address to listen on (default: a free loopback port)")
 	serve.Flags().StringVar(&caOut, "ca-out", "", "where to write the certificate (default: under the user config directory)")
 	serve.Flags().StringVar(&pwFile, "mock-password-file", "", "file holding admin's password (mode 0600)")
+	serve.Flags().StringVar(&o.Tree, "tree", mockbmc.TreeRackmount, "mockup to serve: "+mockbmc.TreeRackmount+" or "+mockbmc.TreeEmulator)
 	serve.Flags().IntVar(&o.TaskPolls, "task-polls", 2, "how many times a task monitor answers 202 before the task completes")
 	cmd.AddCommand(serve)
 	return cmd

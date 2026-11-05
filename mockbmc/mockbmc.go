@@ -41,17 +41,26 @@ import (
 	"sync"
 )
 
-//go:embed all:testdata/public-rackmount1
+//go:embed all:testdata/public-rackmount1 all:testdata/emulator-1u
 var mockup embed.FS
 
 const (
-	root       = "/redfish/v1"
-	mockupRoot = "testdata/public-rackmount1"
-	maxBody    = 1 << 20
+	root    = "/redfish/v1"
+	maxBody = 1 << 20
+)
+
+// Trees are the mockups New can serve: the DMTF public-rackmount1 (DSP2043)
+// and the static tree of the DMTF Redfish Interface Emulator, a second shape
+// (see testdata/README-emulator-1u.txt).
+const (
+	TreeRackmount = "public-rackmount1"
+	TreeEmulator  = "emulator-1u"
 )
 
 // Options configure a mock BMC.
 type Options struct {
+	// Tree is the mockup to serve (default TreeRackmount).
+	Tree string
 	// User and Password are the administrator (default admin / password).
 	User, Password string
 	// TaskPolls is how many times a Task monitor answers 202 before the task
@@ -70,6 +79,7 @@ type BMC struct {
 	nextTask  int
 	nextToken int
 	metadata  []byte
+	tree      string
 	// Log records "METHOD path status" of every request, for tests.
 	log []string
 }
@@ -86,6 +96,13 @@ func New(o Options) (*BMC, error) {
 	if o.TaskPolls <= 0 {
 		o.TaskPolls = 2
 	}
+	if o.Tree == "" {
+		o.Tree = TreeRackmount
+	}
+	if o.Tree != TreeRackmount && o.Tree != TreeEmulator {
+		return nil, fmt.Errorf("mockbmc: unknown tree %q", o.Tree)
+	}
+	mockupRoot := "testdata/" + o.Tree
 	b := &BMC{res: map[string]map[string]any{}, accounts: map[string]string{o.User: o.Password},
 		sessions: map[string]string{}, tasks: map[string]*task{}, opts: o}
 	err := fs.WalkDir(mockup, mockupRoot, func(p string, d fs.DirEntry, err error) error {
@@ -118,6 +135,15 @@ func New(o Options) (*BMC, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+	b.tree = mockupRoot
+	b.augment(o.Tree)
+	// A tree without a Sessions collection gets one, so that a session can be
+	// opened (DSP0266 13.3.4.2).
+	sp := root + "/SessionService/Sessions"
+	if b.res[sp] == nil {
+		b.res[sp] = map[string]any{"@odata.type": "#SessionCollection.SessionCollection", "@odata.id": sp,
+			"Name": "Session Collection", "Members": []any{}, "Members@odata.count": 0}
 	}
 	return b, nil
 }
@@ -226,7 +252,11 @@ func (b *BMC) serve(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/xml")
 		_, _ = w.Write(b.metadata)
 	case p == root+"/odata" && r.Method == http.MethodGet:
-		data, _ := mockup.ReadFile(mockupRoot + "/odata/index.json")
+		data, err := mockup.ReadFile(b.tree + "/odata/index.json")
+		if err != nil {
+			b.fail(w, http.StatusNotFound, "", "The requested resource of type odata was not found.", "Base.1.19.ResourceNotFound")
+			return
+		}
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		_, _ = w.Write(data)
 	case strings.Contains(p, "/Actions/") && r.Method == http.MethodPost:
@@ -327,6 +357,17 @@ func (b *BMC) patch(w http.ResponseWriter, r *http.Request, p string) {
 			b.accounts[u] = pw
 		}
 		delete(in, "Password")
+	}
+	// A Settings object of a Bios resource with ApplyTime Immediate changes the
+	// attributes in force at once (DSP0266 7.12); otherwise they stay pending.
+	if at, _ := in["@Redfish.SettingsApplyTime"].(map[string]any); at != nil && at["ApplyTime"] == "Immediate" && strings.HasSuffix(p, "/Bios/Settings") {
+		if attrs, _ := in["Attributes"].(map[string]any); attrs != nil {
+			if bios := b.res[path.Dir(p)]; bios != nil {
+				if cur, _ := bios["Attributes"].(map[string]any); cur != nil {
+					merge(cur, attrs)
+				}
+			}
+		}
 	}
 	merge(m, in)
 	writeJSON(w, http.StatusOK, m, etagOf(m))
@@ -475,7 +516,39 @@ func (b *BMC) action(w http.ResponseWriter, r *http.Request, p string) {
 			}
 		}
 	}
+	// The ActionInfo resource, when the action names one (DSP0266 9.9.6): its
+	// Parameters list the values allowed.
+	if ai, _ := spec["@Redfish.ActionInfo"].(string); ai != "" {
+		if info := b.res[clean(ai)]; info != nil {
+			params, _ := info["Parameters"].([]any)
+			for _, x := range params {
+				pm, _ := x.(map[string]any)
+				name, _ := pm["Name"].(string)
+				allowed, _ := pm["AllowableValues"].([]any)
+				got, present := in[name]
+				if !present || len(allowed) == 0 {
+					continue
+				}
+				ok := false
+				for _, a := range allowed {
+					ok = ok || fmt.Sprint(a) == fmt.Sprint(got)
+				}
+				if !ok {
+					b.fail(w, http.StatusBadRequest, "", fmt.Sprintf("The value %v for the parameter %s is not in the list of acceptable values.", got, name), "Base.1.19.ActionParameterValueNotInList")
+					return
+				}
+			}
+		}
+	}
 	switch {
+	case isAction(name, "SetDefaultBootOrder"):
+		if boot, _ := m["Boot"].(map[string]any); boot != nil {
+			boot["BootOrder"] = []any{"Boot0001", "Boot0002"}
+		}
+		w.WriteHeader(http.StatusNoContent)
+	case isAction(name, "ResetBios"):
+		m["ResetBiosToDefaultsPending"] = true
+		w.WriteHeader(http.StatusNoContent)
 	case isAction(name, "Reset"):
 		rt, _ := in["ResetType"].(string)
 		switch rt {
