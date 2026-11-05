@@ -115,9 +115,15 @@ func Pick(data []byte, keys ...string) (Props, error) {
 // Members@odata.nextLink (DSP0266 7.2.2), else the pre-1.0 Links.Members some
 // services still send. At most MaxMembers.
 func (c *Client) members(ctx context.Context, coll string) ([]string, error) {
+	return c.membersMax(ctx, coll, MaxMembers, 8)
+}
+
+// membersMax is members with its own bounds: at most max members over at most
+// pages pages.
+func (c *Client) membersMax(ctx context.Context, coll string, max, pages int) ([]string, error) {
 	var out []string
 	next := coll
-	for page := 0; next != "" && page < 8 && len(out) < MaxMembers; page++ {
+	for page := 0; next != "" && page < pages && len(out) < max; page++ {
 		p, _, err := c.getProps(ctx, next)
 		if err != nil {
 			return nil, err
@@ -128,7 +134,7 @@ func (c *Client) members(ctx context.Context, coll string) ([]string, error) {
 		}
 		for _, x := range list {
 			m, _ := x.(map[string]any)
-			if id, _ := m["@odata.id"].(string); servicePath(id) != "" && len(out) < MaxMembers {
+			if id, _ := m["@odata.id"].(string); servicePath(id) != "" && len(out) < max {
 				out = append(out, servicePath(id))
 			}
 		}

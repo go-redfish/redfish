@@ -213,27 +213,39 @@ func (c *Client) request(ctx context.Context, method, path string, body []byte, 
 
 // requestStatus is request, and stores the status of a successful answer.
 func (c *Client) requestStatus(ctx context.Context, method, path string, body []byte, hdr map[string]string, status *int) ([]byte, http.Header, error) {
+	var rd io.Reader
+	if body != nil {
+		rd = bytes.NewReader(body)
+	}
+	return c.requestReader(ctx, method, path, rd, int64(len(body)), c.cfg.Timeout, hdr, status)
+}
+
+// requestReader is requestStatus with a streamed body of known length (n bytes
+// of rd; rd nil: no body) and its own timeout, for an upload.
+func (c *Client) requestReader(ctx context.Context, method, path string, rd io.Reader, n int64, timeout time.Duration, hdr map[string]string, status *int) ([]byte, http.Header, error) {
 	if !strings.HasPrefix(path, "/") || strings.Contains(path, "://") {
 		return nil, nil, fmt.Errorf("%w: %q is not a path of this service", ErrMalformed, path)
 	}
-	ctx, cancel := context.WithTimeout(ctx, c.cfg.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	u := *c.base
 	u.Path, u.RawQuery = path, ""
 	if i := strings.IndexByte(path, '?'); i >= 0 { // a next link of a paged collection
 		u.Path, u.RawQuery = path[:i], path[i+1:]
 	}
-	var rd io.Reader
-	if body != nil {
-		rd = bytes.NewReader(body)
-	}
 	req, err := http.NewRequestWithContext(ctx, method, u.String(), rd)
 	if err != nil {
 		return nil, nil, err
 	}
+	if rd != nil {
+		req.ContentLength = n
+		if n == 0 {
+			req.Body = http.NoBody
+		}
+	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("OData-Version", "4.0")
-	if body != nil {
+	if rd != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
 	for k, v := range hdr {
