@@ -52,6 +52,8 @@ jobs:
           - {target: FuzzUpdateReads, pkg: .}
           - {target: FuzzCheckImageURI, pkg: .}
           - {target: FuzzMultipartFrame, pkg: .}
+          - {target: FuzzStorageReads, pkg: .}
+          - {target: FuzzVolumeRequest, pkg: .}
           - {target: FuzzReadPassword, pkg: ./cmd/redfish}
           - {target: FuzzPropFlags, pkg: ./cmd/redfish}
           - {target: FuzzRenderTable, pkg: ./cmd/redfish}
