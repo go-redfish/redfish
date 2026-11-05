@@ -90,6 +90,8 @@ or the one --id names, else the command fails and lists them (ErrAmbiguous).`,
 		return c, u, err
 	}))
 
+	cmd.AddCommand(logsCmd(g, "chassis", pickerOf(g, func(ctx context.Context, c *redfish.Client) (string, error) { return c.ResolveChassis(ctx, id) })))
+
 	// The oracle's reads.
 	add("inventory", "Identity of the chassis (GetChassisInventory)", many(func(ctx context.Context, c *redfish.Client, u []string) (any, error) {
 		return c.ChassisInventory(ctx, u...)

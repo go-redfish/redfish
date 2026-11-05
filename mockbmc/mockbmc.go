@@ -369,6 +369,15 @@ func (b *BMC) patch(w http.ResponseWriter, r *http.Request, p string) {
 			}
 		}
 	}
+	// A VirtualMedia resource names the image it holds: setting or clearing the
+	// Image sets or clears the ImageName, as a service does.
+	if img, present := in["Image"]; present && strings.Contains(p, "/VirtualMedia/") {
+		if s, _ := img.(string); s != "" {
+			in["ImageName"] = path.Base(s)
+		} else {
+			in["ImageName"] = nil
+		}
+	}
 	merge(m, in)
 	writeJSON(w, http.StatusOK, m, etagOf(m))
 }
@@ -477,14 +486,18 @@ func (b *BMC) del(w http.ResponseWriter, p string) {
 
 // action serves POST <resource>/Actions/<Name>.
 func (b *BMC) action(w http.ResponseWriter, r *http.Request, p string) {
-	resPath, name, _ := strings.Cut(p, "/Actions/")
+	resPath, _, _ := strings.Cut(p, "/Actions/")
 	m, ok := b.res[resPath]
 	var spec map[string]any
+	// The action is the one whose target is the path posted to; its name is its
+	// key ("#LogService.ClearLog"), not the last segment of the target: the
+	// emulator's mockup targets ClearLog at ".../LogService.Reset".
+	name := ""
 	if ok {
 		if acts, _ := m["Actions"].(map[string]any); acts != nil {
 			for k, v := range acts {
-				if sm, _ := v.(map[string]any); sm != nil && clean(fmt.Sprint(sm["target"])) == p && (k == "#"+name || strings.HasSuffix(k, "."+name) || strings.HasSuffix(k, "#"+name)) {
-					spec = sm
+				if sm, _ := v.(map[string]any); sm != nil && clean(fmt.Sprint(sm["target"])) == p {
+					spec, name = sm, strings.TrimPrefix(k, "#")
 				}
 			}
 		}
@@ -549,8 +562,44 @@ func (b *BMC) action(w http.ResponseWriter, r *http.Request, p string) {
 	case isAction(name, "ResetBios"):
 		m["ResetBiosToDefaultsPending"] = true
 		w.WriteHeader(http.StatusNoContent)
+	case isAction(name, "ResetToDefaults"):
+		m["ResetToDefaultsType"] = in["ResetType"]
+		w.WriteHeader(http.StatusNoContent)
+	case isAction(name, "ClearLog"):
+		// The log is emptied: its entries are removed (LogService.ClearLog).
+		entries, _ := m["Entries"].(map[string]any)
+		if ec := b.res[clean(fmt.Sprint(entries["@odata.id"]))]; ec != nil {
+			for _, x := range ec["Members"].([]any) {
+				delete(b.res, clean(fmt.Sprint(x.(map[string]any)["@odata.id"])))
+			}
+			ec["Members"], ec["Members@odata.count"] = []any{}, 0
+		}
+		w.WriteHeader(http.StatusNoContent)
+	case isAction(name, "InsertMedia"):
+		img, _ := in["Image"].(string)
+		if img == "" {
+			b.fail(w, http.StatusBadRequest, "", "Image is required.", "Base.1.19.ActionParameterMissing")
+			return
+		}
+		m["Image"], m["ImageName"] = img, path.Base(img)
+		m["Inserted"] = true
+		if v, ok := in["Inserted"].(bool); ok {
+			m["Inserted"] = v
+		}
+		for _, k := range []string{"WriteProtected", "TransferProtocolType", "TransferMethod", "UserName"} {
+			if v, ok := in[k]; ok {
+				m[k] = v
+			}
+		}
+		w.WriteHeader(http.StatusNoContent)
+	case isAction(name, "EjectMedia"):
+		m["Image"], m["ImageName"], m["Inserted"] = nil, nil, false
+		w.WriteHeader(http.StatusNoContent)
 	case isAction(name, "Reset"):
 		rt, _ := in["ResetType"].(string)
+		if strings.HasPrefix(resPath, root+"/Managers/") {
+			m["LastResetType"] = rt
+		}
 		switch rt {
 		case "On", "ForceOn":
 			m["PowerState"] = "On"

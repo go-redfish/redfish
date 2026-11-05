@@ -126,7 +126,46 @@ redfish ... -o table chassis thermals         # a list is a table: one row per e
   `metrics` act on one chassis and fail with `ErrAmbiguous` when there are several and none is named.
   `-o table` renders a list of objects as a table (it printed a Go slice in v0.4.0).
 
-The next releases bring one area each (Managers, Accounts, Update, Storage/Events/Certificates),
+## Managers (v0.6.0)
+
+Every Manager command of `redfish_command`, `redfish_config` and `redfish_info`, and the VirtualMedia commands
+that the Systems category shares (VirtualMediaInsert, VirtualMediaEject, GetVirtualMedia), ported from
+community.general's `redfish_utils` and run against both mock trees (the rackmount tree keeps its virtual media
+on the system, the emulator tree on the manager; a mock `ClearLog`, `InsertMedia`, `EjectMedia` and
+`ResetToDefaults` act on the resources):
+
+- **Library** (`managers.go`): `ManagerURIs`, `ResolveManager`, `EachManager`, `ManagerInventory`,
+  `ManagerHealthReport`, `ManagerNICInventory`; `ManagerPower` (GracefulRestart, PowerOn... with the ResetType
+  the service allows) and `WaitAvailable`; `ManagerResetToDefaults`; `NetworkProtocols`, `SetNetworkProtocols`
+  (`NetworkProtocolPayload` checks the services, states and ports, as the module does) and `SetNTP`;
+  `ManagerDateTime`, `SetManagerDateTime`; `ServiceIdentification`, `SetServiceIdentification`;
+  `SetManagerNIC`; `HostInterfaces`, `SetHostInterface`; `Logs` and `ClearLogs` (a manager, a system or a chassis);
+  `VirtualMedia`, `VirtualMediaInsert` and `VirtualMediaEject` (a system or a manager: the action when the slot has
+  it, else a PATCH; the HPE and Supermicro workarounds of the oracle). `ParseLogEntries`, `NetworkProtocolPayload`
+  and the manager reads are fuzzed.
+- **CLI**: `redfish managers [--id ID] ...`; virtual media and logs wherever the service puts them:
+
+```sh
+redfish ... managers list
+redfish ... managers inventory                  # health, nic get, service-id get, datetime get
+redfish ... managers power GracefulRestart --wait   # PowerOn, PowerForceOff, PowerReboot...; --wait blocks until the BMC answers
+redfish ... managers reset-to-defaults PreserveNetwork
+redfish ... managers network-protocols set --set SSH.ProtocolEnabled=off --set SSH.Port=2222
+redfish ... managers ntp set --server 0.pool.ntp.org --enable
+redfish ... managers datetime set --time 2026-11-05T17:00:00+01:00 --offset +01:00
+redfish ... managers nic set --address 192.0.2.9 --json '{"IPv4StaticAddresses":{"Address":"192.0.2.9"}}'
+redfish ... managers host-interface set --interface 1 --set InterfaceEnabled=false
+redfish ... managers service-id set rack-7
+redfish ... managers logs --max 20              # logs clear; also systems logs and chassis logs
+redfish ... managers virtual-media insert --image https://host/os.iso --media-type CD   # get, eject; also systems virtual-media
+```
+
+  `inventory`, `health` and `nic get` cover every manager without `--id`; the others act on one manager and fail with
+  `ErrAmbiguous` when there are several and none is named. A password for an image is read from
+  `--image-password-file` (mode 0600), never given on the command line. `chassis led` is covered by its own tests
+  (`TestChassisIndicatorLED`, `TestChassisLedCommands`).
+
+The next releases bring one area each (Accounts, Update, Storage/Events/Certificates),
 each adding its library functions, CLI commands and PARITY.md rows.
 
 ## What it follows
@@ -167,7 +206,7 @@ Chassis v1.29.0 but still the one most BMCs serve).
 
 ## Status
 
-v0.5.0: the Chassis commands; v0.4.0: the Systems commands (library, CLI, second mock tree); v0.3.0: the generic client, the mock BMC and the CLI; v0.2.0 and before: the energy reader. Section
+v0.6.0: the Managers commands, virtual media and logs; v0.5.0: the Chassis commands; v0.4.0: the Systems commands (library, CLI, second mock tree); v0.3.0: the generic client, the mock BMC and the CLI; v0.2.0 and before: the energy reader. Section
 numbers cited in the code are DSP0266 1.23.0's.
 
 **Performance.** `BenchmarkGet` (one resource of the mock over TLS keep-alive, client and mock in one process,

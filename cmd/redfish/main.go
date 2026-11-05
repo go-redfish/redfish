@@ -69,6 +69,6 @@ directory and used with --session.`,
 	f.BoolVar(&g.session, "session", false, "use the session saved by 'redfish session login', not the password")
 	f.DurationVar(&g.timeout, "timeout", 0, "per-request timeout (default 10s)")
 	f.StringVarP(&g.output, "output", "o", "json", "output format: json or table")
-	root.AddCommand(sessionCmd(g), rawCmd(g), systemsCmd(g), chassisCmd(g), mockCmd(g))
+	root.AddCommand(sessionCmd(g), rawCmd(g), systemsCmd(g), chassisCmd(g), managersCmd(g), mockCmd(g))
 	return root
 }

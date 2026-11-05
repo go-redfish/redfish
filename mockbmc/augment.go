@@ -64,4 +64,59 @@ func (b *BMC) augment(tree string) {
 					"AllowableValues": []any{"ForceOn", "ForceOff", "GracefulShutdown", "GracefulRestart", "ForceRestart", "PushPowerButton", "PowerCycle"}}}}
 		}
 	}
+	b.augmentManagers(tree)
+}
+
+// augmentManagers adds what the Managers commands need:
+//   - Manager.ServiceIdentification, and a Manager.ResetToDefaults action (the
+//     rackmount lists its ResetType values as an AllowableValues annotation, the
+//     emulator as an ActionInfo that does not allow PreserveNetworkAndUsers, so
+//     that both ways of telling the values, and a refusal, are exercised);
+//   - an NTP service in ManagerNetworkProtocol (NTPServers, ProtocolEnabled);
+//   - VirtualMedia: CD1 of every VirtualMedia collection gets the InsertMedia and
+//     EjectMedia actions (with TransferProtocolType allowable values), while
+//     Floppy1 has none and takes a PATCH of Image and Inserted, with a
+//     TransferMethod whose allowable values the resource itself lists
+//     (@Redfish.AllowableValues next to the property, DSP0266 9.9.2).
+func (b *BMC) augmentManagers(tree string) {
+	for p, m := range b.res {
+		switch {
+		case strings.HasPrefix(p, root+"/Managers/") && strings.Count(p, "/") == 4:
+			if _, ok := m["ServiceIdentification"]; !ok {
+				m["ServiceIdentification"] = "mock-bmc-" + tree
+			}
+			acts, _ := m["Actions"].(map[string]any)
+			if acts == nil {
+				acts = map[string]any{}
+				m["Actions"] = acts
+			}
+			a := map[string]any{"target": p + "/Actions/Manager.ResetToDefaults"}
+			if tree == TreeRackmount {
+				a["ResetType@Redfish.AllowableValues"] = []any{"ResetAll", "PreserveNetworkAndUsers", "PreserveNetwork"}
+			} else {
+				ai := p + "/ResetToDefaultsActionInfo"
+				a["@Redfish.ActionInfo"] = ai
+				b.res[ai] = map[string]any{"@odata.type": "#ActionInfo.v1_3_0.ActionInfo", "@odata.id": ai, "Id": "ResetToDefaultsActionInfo", "Name": "ResetToDefaults Action Info",
+					"Parameters": []any{map[string]any{"Name": "ResetType", "Required": true, "DataType": "String", "AllowableValues": []any{"ResetAll", "PreserveNetwork"}}}}
+			}
+			acts["#Manager.ResetToDefaults"] = a
+		case strings.HasPrefix(p, root+"/Managers/") && strings.HasSuffix(p, "/NetworkProtocol"):
+			if _, ok := m["NTP"]; !ok {
+				m["NTP"] = map[string]any{"ProtocolEnabled": false, "NTPServers": []any{}}
+			}
+		case strings.Contains(p, "/VirtualMedia/") && strings.HasSuffix(p, "/CD1"):
+			acts, _ := m["Actions"].(map[string]any)
+			if acts == nil {
+				acts = map[string]any{}
+				m["Actions"] = acts
+			}
+			acts["#VirtualMedia.InsertMedia"] = map[string]any{"target": p + "/Actions/VirtualMedia.InsertMedia",
+				"TransferProtocolType@Redfish.AllowableValues": []any{"HTTP", "HTTPS", "NFS"}}
+			acts["#VirtualMedia.EjectMedia"] = map[string]any{"target": p + "/Actions/VirtualMedia.EjectMedia"}
+			m["TransferProtocolType"] = "HTTPS"
+		case strings.Contains(p, "/VirtualMedia/") && strings.HasSuffix(p, "/Floppy1"):
+			m["TransferMethod"] = "Stream"
+			m["TransferMethod@Redfish.AllowableValues"] = []any{"Stream", "Upload"}
+		}
+	}
 }

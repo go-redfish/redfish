@@ -24,12 +24,12 @@ go-redfish is meant to do everything the three Ansible modules `redfish_command`
 | redfish_command | Systems | IndicatorLedOn | `Client.SetIndicatorLED` | `systems led on` | `TestSecureBootPowerRestoreLedAndAssetTag`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
 | redfish_command | Systems | IndicatorLedOff | `Client.SetIndicatorLED` | `systems led off` | `TestSecureBootPowerRestoreLedAndAssetTag`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
 | redfish_command | Systems | IndicatorLedBlink | `Client.SetIndicatorLED` | `systems led blink` | `TestSecureBootPowerRestoreLedAndAssetTag`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
-| redfish_command | Systems | VirtualMediaInsert |  |  |  | todo (v0.6.0 Managers) |
-| redfish_command | Systems | VirtualMediaEject |  |  |  | todo (v0.6.0 Managers) |
+| redfish_command | Systems | VirtualMediaInsert | `Client.VirtualMediaInsert` | `systems virtual-media insert` | `TestVirtualMedia`, `TestVirtualMediaQuirkyVendors`, `TestLogsAndVirtualMediaCommands` | done |
+| redfish_command | Systems | VirtualMediaEject | `Client.VirtualMediaEject` | `systems virtual-media eject` | `TestVirtualMedia`, `TestLogsAndVirtualMediaCommands` | done |
 | redfish_command | Systems | VerifyBiosAttributes | `Client.VerifyBiosAttributes` | `systems bios verify` | `TestBios`, `TestSystemsBios` | done |
-| redfish_command | Chassis | IndicatorLedOn | `Client.SetIndicatorLED` | `chassis led on` | `TestSecureBootPowerRestoreLedAndAssetTag`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
-| redfish_command | Chassis | IndicatorLedOff | `Client.SetIndicatorLED` | `chassis led off` | `TestSecureBootPowerRestoreLedAndAssetTag`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
-| redfish_command | Chassis | IndicatorLedBlink | `Client.SetIndicatorLED` | `chassis led blink` | `TestSecureBootPowerRestoreLedAndAssetTag`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
+| redfish_command | Chassis | IndicatorLedOn | `Client.SetIndicatorLED` | `chassis led on` | `TestChassisIndicatorLED`, `TestChassisLedCommands` | done |
+| redfish_command | Chassis | IndicatorLedOff | `Client.SetIndicatorLED` | `chassis led off` | `TestChassisIndicatorLED`, `TestChassisLedCommands` | done |
+| redfish_command | Chassis | IndicatorLedBlink | `Client.SetIndicatorLED` | `chassis led blink` | `TestChassisIndicatorLED`, `TestChassisLedCommands` | done |
 | redfish_command | Accounts | AddUser |  |  |  | todo (v0.7.0 Accounts) |
 | redfish_command | Accounts | EnableUser |  |  |  | todo (v0.7.0 Accounts) |
 | redfish_command | Accounts | DeleteUser |  |  |  | todo (v0.7.0 Accounts) |
@@ -42,17 +42,17 @@ go-redfish is meant to do everything the three Ansible modules `redfish_command`
 | redfish_command | Sessions | ClearSessions |  |  |  | todo (v0.3.0 Sessions) |
 | redfish_command | Sessions | CreateSession | `Client.Login`, `Client.Session` | `session login` | `TestSessionLoginResumeAndLogout`, `TestSessionLoginUseLogout` | done |
 | redfish_command | Sessions | DeleteSession | `Client.Close`, `Client.Delete` | `session logout`, `raw delete` | `TestSessionLoginResumeAndLogout`, `TestSessionLoginUseLogout` | done |
-| redfish_command | Manager | GracefulRestart |  |  |  | todo (v0.6.0 Managers) |
-| redfish_command | Manager | ClearLogs |  |  |  | todo (v0.6.0 Managers) |
-| redfish_command | Manager | VirtualMediaInsert |  |  |  | todo (v0.6.0 Managers) |
-| redfish_command | Manager | ResetToDefaults |  |  |  | todo (v0.6.0 Managers) |
-| redfish_command | Manager | VirtualMediaEject |  |  |  | todo (v0.6.0 Managers) |
-| redfish_command | Manager | PowerOn |  |  |  | todo (v0.6.0 Managers) |
-| redfish_command | Manager | PowerForceOff |  |  |  | todo (v0.6.0 Managers) |
-| redfish_command | Manager | PowerForceRestart |  |  |  | todo (v0.6.0 Managers) |
-| redfish_command | Manager | PowerGracefulRestart |  |  |  | todo (v0.6.0 Managers) |
-| redfish_command | Manager | PowerGracefulShutdown |  |  |  | todo (v0.6.0 Managers) |
-| redfish_command | Manager | PowerReboot |  |  |  | todo (v0.6.0 Managers) |
+| redfish_command | Manager | GracefulRestart | `Client.ManagerPower` (maps it to PowerGracefulRestart), `Client.WaitAvailable` | `managers power GracefulRestart [--wait]` | `TestManagerPower`, `TestWaitAvailable`, `TestManagersReadsAndReset` | done |
+| redfish_command | Manager | ClearLogs | `Client.ClearLogs` | `managers logs clear` | `TestLogsAndClearLogs`, `TestLogsAndVirtualMediaCommands` | done |
+| redfish_command | Manager | VirtualMediaInsert | `Client.VirtualMediaInsert` | `managers virtual-media insert` | `TestVirtualMedia`, `TestVirtualMediaQuirkyVendors`, `TestVirtualMediaSlotRules`, `TestLogsAndVirtualMediaCommands` | done |
+| redfish_command | Manager | ResetToDefaults | `Client.ManagerResetToDefaults` | `managers reset-to-defaults` | `TestManagerResetToDefaults`, `TestManagersReadsAndReset` | done |
+| redfish_command | Manager | VirtualMediaEject | `Client.VirtualMediaEject` | `managers virtual-media eject` | `TestVirtualMedia`, `TestVirtualMediaSlotRules`, `TestLogsAndVirtualMediaCommands` | done |
+| redfish_command | Manager | PowerOn | `Client.ManagerPower` | `managers power PowerOn` | `TestManagerPower`, `TestManagersReadsAndReset` | done |
+| redfish_command | Manager | PowerForceOff | `Client.ManagerPower` | `managers power PowerForceOff` | `TestManagerPower`, `TestManagersReadsAndReset` | done |
+| redfish_command | Manager | PowerForceRestart | `Client.ManagerPower` | `managers power PowerForceRestart` | `TestManagerPower`, `TestManagersReadsAndReset` | done |
+| redfish_command | Manager | PowerGracefulRestart | `Client.ManagerPower` | `managers power PowerGracefulRestart` | `TestManagerPower`, `TestManagersReadsAndReset` | done |
+| redfish_command | Manager | PowerGracefulShutdown | `Client.ManagerPower` | `managers power PowerGracefulShutdown` | `TestManagerPower`, `TestManagersReadsAndReset` | done |
+| redfish_command | Manager | PowerReboot | `Client.ManagerPower` | `managers power PowerReboot` | `TestManagerPower`, `TestManagersReadsAndReset` | done |
 | redfish_command | Update | SimpleUpdate |  |  |  | todo (v0.8.0 Update) |
 | redfish_command | Update | MultipartHTTPPushUpdate |  |  |  | todo (v0.8.0 Update) |
 | redfish_command | Update | PerformRequestedOperations |  |  |  | todo (v0.8.0 Update) |
@@ -65,10 +65,10 @@ go-redfish is meant to do everything the three Ansible modules `redfish_command`
 | redfish_config | Systems | DeleteVolumes |  |  |  | todo (v0.9.0 Storage) |
 | redfish_config | Systems | CreateVolume |  |  |  | todo (v0.9.0 Storage) |
 | redfish_config | Systems | SetPowerRestorePolicy | `Client.SetPowerRestorePolicy` | `systems power-restore-policy set` | `TestSecureBootPowerRestoreLedAndAssetTag`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
-| redfish_config | Manager | SetNetworkProtocols |  |  |  | todo (v0.6.0 Managers) |
-| redfish_config | Manager | SetManagerNic |  |  |  | todo (v0.6.0 Managers) |
-| redfish_config | Manager | SetHostInterface |  |  |  | todo (v0.6.0 Managers) |
-| redfish_config | Manager | SetServiceIdentification |  |  |  | todo (v0.6.0 Managers) |
+| redfish_config | Manager | SetNetworkProtocols | `Client.SetNetworkProtocols`, `NetworkProtocolPayload`, `Client.SetNTP` | `managers network-protocols set`, `managers ntp set` | `TestNetworkProtocolsAndNTP`, `TestNetworkProtocolPayload`, `FuzzNetworkProtocolPayload`, `TestManagersConfig` | done |
+| redfish_config | Manager | SetManagerNic | `Client.SetManagerNIC` | `managers nic set` | `TestManagerNICs`, `TestManagersConfig` | done |
+| redfish_config | Manager | SetHostInterface | `Client.SetHostInterface` | `managers host-interface set` | `TestHostInterfaces`, `TestManagersConfig` | done |
+| redfish_config | Manager | SetServiceIdentification | `Client.SetServiceIdentification` | `managers service-id set` | `TestManagerDateTimeAndServiceIdentification`, `TestManagersConfig` | done |
 | redfish_config | Sessions | SetSessionService |  |  |  | todo (v0.3.0 Sessions) |
 | redfish_info | Systems | GetSystemInventory | `Client.SystemInventory` | `systems inventory system` | `TestInventories`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
 | redfish_info | Systems | GetPsuInventory | `Client.PSUInventory` | `systems inventory psu` | `TestInventories`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
@@ -82,7 +82,7 @@ go-redfish is meant to do everything the three Ansible modules `redfish_command`
 | redfish_info | Systems | GetBiosAttributes | `Client.BiosAttributes` | `systems bios get` | `TestBios`, `TestSystemsBios` | done |
 | redfish_info | Systems | GetBootOrder | `Client.BootOrder` | `systems boot-order get` | `TestBootOrder`, `TestSystemsBoot` | done |
 | redfish_info | Systems | GetBootOverride | `Client.BootOverrideOf` | `systems boot-override get` | `TestBootOverride`, `TestSystemsBoot` | done |
-| redfish_info | Systems | GetVirtualMedia |  |  |  | todo (v0.6.0 Managers) |
+| redfish_info | Systems | GetVirtualMedia | `Client.VirtualMedia` | `systems virtual-media get` | `TestVirtualMedia`, `TestLogsAndVirtualMediaCommands` | done |
 | redfish_info | Systems | GetBiosRegistries | `Client.BiosRegistry` | `systems bios registry` | `TestBios`, `TestSystemsBios` | done |
 | redfish_info | Systems | GetPowerRestorePolicy | `Client.PowerRestorePolicy` | `systems power-restore-policy get` | `TestSecureBootPowerRestoreLedAndAssetTag`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
 | redfish_info | Chassis | GetFanInventory | `Client.FanInventory` | `chassis fans` | `TestChassisOracleReads`, `TestChassisCommands` | done |
@@ -100,14 +100,14 @@ go-redfish is meant to do everything the three Ansible modules `redfish_command`
 | redfish_info | Update | GetFirmwareUpdateCapabilities |  |  |  | todo (v0.8.0 Update) |
 | redfish_info | Update | GetSoftwareInventory |  |  |  | todo (v0.8.0 Update) |
 | redfish_info | Update | GetUpdateStatus |  |  |  | todo (v0.8.0 Update) |
-| redfish_info | Manager | GetManagerNicInventory |  |  |  | todo (v0.6.0 Managers) |
-| redfish_info | Manager | GetVirtualMedia |  |  |  | todo (v0.6.0 Managers) |
-| redfish_info | Manager | GetLogs |  |  |  | todo (v0.6.0 Managers) |
-| redfish_info | Manager | GetNetworkProtocols |  |  |  | todo (v0.6.0 Managers) |
-| redfish_info | Manager | GetHealthReport |  |  |  | todo (v0.6.0 Managers) |
-| redfish_info | Manager | GetHostInterfaces |  |  |  | todo (v0.6.0 Managers) |
-| redfish_info | Manager | GetManagerInventory |  |  |  | todo (v0.6.0 Managers) |
-| redfish_info | Manager | GetServiceIdentification |  |  |  | todo (v0.6.0 Managers) |
+| redfish_info | Manager | GetManagerNicInventory | `Client.ManagerNICInventory`, `Client.EachManager` | `managers nic get` | `TestManagerNICs`, `TestManagersReadsAndReset` | done |
+| redfish_info | Manager | GetVirtualMedia | `Client.VirtualMedia` | `managers virtual-media get` | `TestVirtualMedia`, `TestLogsAndVirtualMediaCommands` | done |
+| redfish_info | Manager | GetLogs | `Client.Logs`, `ParseLogEntries` | `managers logs` | `TestLogsAndClearLogs`, `TestParseLogEntries`, `FuzzParseLogEntries`, `TestManagersReadsAndReset` | done |
+| redfish_info | Manager | GetNetworkProtocols | `Client.NetworkProtocols` | `managers network-protocols get` | `TestNetworkProtocolsAndNTP`, `TestManagersReadsAndReset` | done |
+| redfish_info | Manager | GetHealthReport | `Client.ManagerHealthReport`, `Client.EachManager` | `managers health` | `TestManagerResolveInventoryHealth`, `TestManagersReadsAndReset` | done |
+| redfish_info | Manager | GetHostInterfaces | `Client.HostInterfaces` | `managers host-interface get` | `TestHostInterfaces`, `TestManagersConfig` | done |
+| redfish_info | Manager | GetManagerInventory | `Client.ManagerInventory`, `Client.EachManager` | `managers inventory` | `TestManagerResolveInventoryHealth`, `TestManagersReadsAndReset`, `FuzzManagerReads` | done |
+| redfish_info | Manager | GetServiceIdentification | `Client.ServiceIdentification`, `Client.ResolveServiceIdentification` | `managers service-id get` | `TestManagerDateTimeAndServiceIdentification`, `TestManagersConfig` | done |
 | redfish_info | Service | CheckAvailability | `Client.Root`, `Client.Get("/redfish")` | `raw get /redfish`, `raw get /redfish/v1/` | `TestRawPutHeadVersionsOdataMetadata`, `TestRawGetJSONAndTable` | done |
 
 ## redfishtool operations (cross-check)
@@ -120,13 +120,15 @@ go-redfish is meant to do everything the three Ansible modules `redfish_command`
 | `SessionService setSessionTimeout`, `Sessions list`, `patch` | `SetSessionService`, `GetSessions` | todo (v0.3.0 Sessions) |
 | `Systems list|get|patch`, `Processors`, `Inventory`, `EthernetInterfaces`, `SimpleStorage` | `systems list`, `systems inventory` (`system`, `cpu`, `memory`, `nic`, `psu`), `raw get`, `raw patch` (`TestSystemsListAndPower`, `TestInventories`); `SimpleStorage` is the GetStorageControllerInventory row | done, except `SimpleStorage` (todo v0.9.0 Storage) |
 | `Systems reset`, `setAssetTag`, `setIndicatorLed`, `setBootOverride` | `systems power`, `systems led`, `systems boot-override set`; `setAssetTag` has no Ansible row: added as `Client.SetAssetTag`, `systems asset-tag` (`TestPowerCommands`, `TestSecureBootPowerRestoreLedAndAssetTag`) | done |
-| `Systems Logs`, `clearLog`; Chassis and Managers likewise | `GetLogs`, `ClearLogs` | todo (v0.6.0 Managers) |
+| `Systems Logs`, `clearLog`; Chassis and Managers likewise | `GetLogs`, `ClearLogs` for a manager (`managers logs`, `managers logs clear`); the same functions read and clear the LogServices of a system and of a chassis (`systems logs`, `chassis logs`; `TestLogsAndClearLogs`, `TestLogsAndVirtualMediaCommands`) | done |
 | `Chassis Power`, `Thermal`, `Sensors`, `getPowerReading`, `setPowerLimit` | `chassis power`, `chassis thermals` (`TestChassisOracleReads`); Sensors, PowerSubsystem, ThermalSubsystem and EnvironmentMetrics are added: `chassis sensors`, `power-subsystem`, `thermal-subsystem`, `metrics` (`TestChassisNewResources`; DSP8010 Chassis 1.29, the schemas the Meter already reads); `getPowerReading` is `chassis metrics` (PowerWatts) and `chassis power` (PowerConsumedWatts) | done |
 | `Chassis setPowerLimit` | N/A: it has no Ansible row, and the limit lives in an array of the deprecated Power resource (PowerControl[n].PowerLimit) or in a Controls resource, which services handle differently; `raw patch` sets it | N/A |
-| `Managers reset`, `setDateTime`, `setTimeOffset`, `NetworkProtocol`, `EthernetInterfaces`, `SerialInterfaces` | `GracefulRestart`, `SetNetworkProtocols`, `SetManagerNic`, `GetNetworkProtocols`, `GetManagerNicInventory`; date and time added | todo (v0.6.0 Managers) |
+| `Managers reset`, `NetworkProtocol`, `EthernetInterfaces` | `managers power`, `managers network-protocols get` and `set`, `managers nic get` and `set` (the `GracefulRestart`, `SetNetworkProtocols`, `SetManagerNic`, `GetNetworkProtocols` and `GetManagerNicInventory` rows) | done |
+| `Managers setDateTime`, `setTimeOffset` | no Ansible row: added as `Client.SetManagerDateTime`, `Client.ManagerDateTime`, `managers datetime get` and `set` (and `Client.SetNTP`, `managers ntp set`, a flat view of the NTP service of SetNetworkProtocols) (`TestManagerDateTimeAndServiceIdentification`, `TestNetworkProtocolsAndNTP`, `TestManagersConfig`) | done |
+| `Managers SerialInterfaces` | N/A: no Ansible row and no write; `raw get /redfish/v1/Managers/ID/SerialInterfaces` reads them | N/A |
 | `AccountService adduser|deleteuser|setpassword|useradmin|setusername|Accounts|Roles` | the Accounts rows | todo (v0.7.0 Accounts) |
 | `hello`, `about`, `examples` (developer commands) | N/A: they print redfishtool's own help | N/A |
 | `-W/--Wait`, `-C/--CheckRedfishVersion`, `-R/--RedfishVersion` | `Client.Root` reports RedfishVersion; the CLI does not wait for or select a protocol version: Redfish has one major version, v1, in the URL (DSP0266 7.2.3) | N/A |
 | `-A None|Basic|Session`, `-S Secure` | basic and session are `--password-file` and `session login`; "None" and non-https are refused on purpose (DSP0266 13.3.3: basic needs HTTPS; a password is never sent in clear) | N/A |
 | `-N/--NonBlocking` | a task monitor is returned, not awaited, unless `--watch` is given (`Client.WaitTask`) | todo (v0.8.0 Update) |
-| `-I/-M/-F/-1/-L` (select a member) | each area command takes `--id` or picks the only member; several members and no `--id` is `ErrAmbiguous` (`systems --id`, `chassis --id`; `TestResolveAmbiguous`) | done for Systems and Chassis (the other areas follow with their release) |
+| `-I/-M/-F/-1/-L` (select a member) | each area command takes `--id` or picks the only member; several members and no `--id` is `ErrAmbiguous` (`systems --id`, `chassis --id`, `managers --id`; `TestResolveAmbiguous`, `TestManagerResolveInventoryHealth`) | done for Systems, Chassis and Managers (the other areas follow with their release) |
