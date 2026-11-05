@@ -453,38 +453,38 @@ func linkPaths(p Props, key string) []string {
 // The subsystem is named by the last segment of its path (the oracle's
 // storage_subsystem_id; with none, the only one). The answer is 201 with the new
 // volume, or 202 with a task monitor in Outcome.Monitor.
-func (c *Client) CreateVolume(ctx context.Context, systemURI, storageID string, req VolumeRequest) (Outcome, error) {
+func (c *Client) CreateVolume(ctx context.Context, systemURI, storageID string, req VolumeRequest) (VolumeResult, error) {
 	rd := &reads{}
 	suri, st, err := c.storageOf(ctx, rd, systemURI, storageID)
 	if err != nil {
-		return Outcome{}, err
+		return VolumeResult{}, err
 	}
 	payload, err := BuildVolumePayload(req.Details, req.Drives)
 	if err != nil {
-		return Outcome{}, err
+		return VolumeResult{}, err
 	}
 	coll := linkOf(st, "Volumes")
 	if coll == "" {
-		return Outcome{}, fmt.Errorf("%w: %s has no Volumes collection", ErrUnsupported, suri)
+		return VolumeResult{}, fmt.Errorf("%w: %s has no Volumes collection", ErrUnsupported, suri)
 	}
 	var supported []string
 	if first, err := c.firstController(ctx, rd, st); err == nil && first != nil {
 		supported = stringList(first["SupportedRAIDTypes"])
 	}
 	if err := CheckVolumeRequest(str(req.Details, "RAIDType"), pathsOf(payload), supported, linkPaths(st, "Drives")); err != nil {
-		return Outcome{}, err
+		return VolumeResult{}, err
 	}
 	var monitors []string
 	if req.DeleteNoneVolumes {
 		uris, err := c.members(ctx, coll)
 		if err != nil {
-			return Outcome{}, err
+			return VolumeResult{}, err
 		}
 		var none []string
 		for _, u := range uris {
 			vp, err := rd.get(ctx, c, u)
 			if err != nil {
-				return Outcome{}, err
+				return VolumeResult{}, err
 			}
 			if vp["RAIDType"] == "None" {
 				none = append(none, u)
@@ -496,7 +496,7 @@ func (c *Client) CreateVolume(ctx context.Context, systemURI, storageID string, 
 		for _, u := range none {
 			r, err := c.Delete(ctx, u, "")
 			if err != nil {
-				return Outcome{}, err
+				return VolumeResult{}, err
 			}
 			if r.IsTask() {
 				monitors = append(monitors, r.Location())
@@ -505,14 +505,14 @@ func (c *Client) CreateVolume(ctx context.Context, systemURI, storageID string, 
 	}
 	r, err := c.Post(ctx, coll, payload)
 	if err != nil {
-		return Outcome{}, err
+		return VolumeResult{}, err
 	}
 	if r.IsTask() {
 		monitors = append(monitors, r.Location())
 	}
-	o := Outcome{Changed: true, Message: "Volume Created", Monitors: monitors}
+	o := VolumeResult{Outcome: Outcome{Changed: true, Message: "Volume Created"}, Monitors: monitors}
 	if len(monitors) > 0 {
-		o.Monitor = monitors[len(monitors)-1]
+		o.Monitor = monitors[0]
 	}
 	return o, nil
 }
@@ -528,6 +528,13 @@ func pathsOf(payload Props) []string {
 	return out
 }
 
+// VolumeResult is what CreateVolume and DeleteVolumes did: Monitors are the task
+// monitors of every request that answered 202 (Monitor is the first of them).
+type VolumeResult struct {
+	Outcome
+	Monitors []string
+}
+
 // DeleteVolumesOptions tune DeleteVolumes.
 type DeleteVolumesOptions struct {
 	// DryRun resolves the volumes and deletes nothing.
@@ -541,25 +548,25 @@ type DeleteVolumesOptions struct {
 // (delete_volumes). The Ids are required and each must be a volume of the
 // subsystem: unlike the oracle, which skips an Id it does not find and says the
 // volumes "were deleted", nothing is deleted when one is unknown.
-func (c *Client) DeleteVolumes(ctx context.Context, systemURI, storageID string, ids []string, o DeleteVolumesOptions) (Outcome, error) {
+func (c *Client) DeleteVolumes(ctx context.Context, systemURI, storageID string, ids []string, o DeleteVolumesOptions) (VolumeResult, error) {
 	if len(ids) == 0 {
-		return Outcome{}, errors.New("redfish: name the volumes to delete (their Ids)")
+		return VolumeResult{}, errors.New("redfish: name the volumes to delete (their Ids)")
 	}
 	rd := &reads{}
 	suri, st, err := c.storageOf(ctx, rd, systemURI, storageID)
 	if err != nil {
-		return Outcome{}, err
+		return VolumeResult{}, err
 	}
 	coll := linkOf(st, "Volumes")
 	if coll == "" {
-		return Outcome{}, fmt.Errorf("%w: %s has no Volumes collection", ErrUnsupported, suri)
+		return VolumeResult{}, fmt.Errorf("%w: %s has no Volumes collection", ErrUnsupported, suri)
 	}
 	uris, err := c.members(ctx, coll)
 	if err != nil {
-		return Outcome{}, err
+		return VolumeResult{}, err
 	}
 	if len(uris) == 0 {
-		return Outcome{Changed: false, Message: "VolumeCollection's Members array is either empty or missing"}, nil
+		return VolumeResult{Outcome: Outcome{Changed: false, Message: "VolumeCollection's Members array is either empty or missing"}}, nil
 	}
 	var plan []string
 	seen := map[string]bool{}
@@ -570,7 +577,7 @@ func (c *Client) DeleteVolumes(ctx context.Context, systemURI, storageID string,
 		seen[id] = true
 		u, err := resolve(uris, id, "volume")
 		if err != nil {
-			return Outcome{}, err
+			return VolumeResult{}, err
 		}
 		plan = append(plan, u)
 	}
@@ -578,12 +585,14 @@ func (c *Client) DeleteVolumes(ctx context.Context, systemURI, storageID string,
 		o.OnPlan(plan)
 	}
 	if o.DryRun {
-		return Outcome{Changed: false, Message: fmt.Sprintf("dry run: would delete %s", strings.Join(plan, ", "))}, nil
+		return VolumeResult{Outcome: Outcome{Changed: false, Message: fmt.Sprintf("dry run: would delete %s", strings.Join(plan, ", "))}}, nil
 	}
-	out := Outcome{Changed: true, Message: fmt.Sprintf("The following volumes were deleted: %s", strings.Join(ids, ", "))}
-	for _, u := range plan {
+	out := VolumeResult{Outcome: Outcome{Changed: true, Message: fmt.Sprintf("The following volumes were deleted: %s", strings.Join(ids, ", "))}}
+	for i, u := range plan {
 		r, err := c.Delete(ctx, u, "")
 		if err != nil {
+			out.Message = fmt.Sprintf("deleted %d of %d volumes before the error", i, len(plan))
+			out.Changed = i > 0
 			return out, fmt.Errorf("deleting %s: %w", u, err)
 		}
 		if r.IsTask() {

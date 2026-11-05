@@ -11,7 +11,7 @@ import (
 )
 
 // showMonitors prints the task monitors an outcome carries on stderr.
-func showMonitors(cmd *cobra.Command, o redfish.Outcome) {
+func showMonitors(cmd *cobra.Command, o redfish.VolumeResult) {
 	for _, m := range o.Monitors {
 		fmt.Fprintf(cmd.ErrOrStderr(), "task: accepted; monitor: %s\n", clean(m))
 	}
@@ -107,7 +107,7 @@ A service that answers 202 starts a task: its monitor is printed on stderr.`,
 			}
 			showMonitors(cmd, o)
 			o.Monitor = ""
-			return g.showOutcome(cmd, o)
+			return g.showOutcome(cmd, o.Outcome)
 		}),
 	}
 	f := cmd.Flags()
@@ -159,7 +159,7 @@ starts a task: its monitors are printed on stderr.`,
 				return err
 			}
 			o.Monitor = ""
-			return g.showOutcome(cmd, o)
+			return g.showOutcome(cmd, o.Outcome)
 		}),
 	}
 	cmd.Flags().StringVar(&storage, "storage", "", "the Storage subsystem: the last segment of its path (required)")

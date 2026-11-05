@@ -90,7 +90,7 @@ func TestCreateAndDeleteVolume(t *testing.T) {
 	forEachTree(t, func(t *testing.T, b *mockbmc.BMC, c *redfish.Client, sys string) {
 		ctx := context.Background()
 		d := func(n string) string { return raidPath + "/Drives/" + n }
-		create := func(raid string, drives ...string) (redfish.Outcome, error) {
+		create := func(raid string, drives ...string) (redfish.VolumeResult, error) {
 			return c.CreateVolume(ctx, sys, "RAID1", redfish.VolumeRequest{Details: redfish.Props{"RAIDType": raid, "Name": "data"}, Drives: drives})
 		}
 

@@ -252,8 +252,8 @@ The last five rows of [PARITY.md](PARITY.md): `GetStorageControllerInventory`, `
 
 - **Library** (`storage.go`): `StorageControllerInventory`, `DiskInventory`, `VolumeInventory`, `CreateVolume`,
   `DeleteVolumes`, and the pure `ParseController`, `ParseDrive`, `ParseVolume`, `BuildVolumePayload`,
-  `CheckVolumeRequest`. A 202 answer is returned as task monitors (`Outcome.Monitor`, and the new `Outcome.Monitors`
-  when a command made several requests).
+  `CheckVolumeRequest`. A 202 answer is returned as task monitors (`VolumeResult`: an `Outcome` and `Monitors`, one per request
+  that answered 202).
 - **CLI**: `redfish storage controllers|disks|volumes` and `redfish storage volume create|delete`, with `--id` for
   the system. `disks` reads Storage, else the Devices of SimpleStorage.
 
