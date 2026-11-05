@@ -165,7 +165,46 @@ redfish ... managers virtual-media insert --image https://host/os.iso --media-ty
   `--image-password-file` (mode 0600), never given on the command line. `chassis led` is covered by its own tests
   (`TestChassisIndicatorLED`, `TestChassisLedCommands`).
 
-The next releases bring one area each (Accounts, Update, Storage/Events/Certificates),
+## Accounts and sessions (v0.7.0)
+
+The Accounts commands of `redfish_command` (AddUser, DeleteUser, EnableUser, DisableUser, UpdateUserRole,
+UpdateUserPassword, UpdateUserName, UpdateUserAccountTypes, UpdateAccountServiceProperties), `ListUsers` and
+`GetAccountServiceConfig` of `redfish_info`, and the Sessions commands (ClearSessions, SetSessionService,
+GetSessions), ported from community.general's `redfish_utils`:
+
+- **Library** (`accounts.go`): `ListUsers`, `AccountServiceConfig`, `Roles`, `AddUser`, `DeleteUser`, `EnableUser`,
+  `DisableUser`, `UpdateUserRole`, `UpdateUserPassword`, `UpdateUserName`, `UpdateUserAccountTypes`,
+  `UpdateAccountServiceProperties`, `GetSessions`, `ClearSessions`, `SetSessionService`, and `PasswordChangeURI`
+  (the account a `Base.1.x.PasswordChangeRequired` refusal names). A service with a fixed number of accounts is
+  handled as the oracle does: no POST in the `Allow` header (or a 405) is an empty slot changed by a PATCH, no
+  DELETE is a PATCH that empties the account. A password is a `Secret`: it prints as `[redacted]` with every fmt
+  verb, as JSON and in `log/slog`, and an error from a service that repeats it is redacted (text and fields).
+- **CLI**: `redfish accounts list|roles|add|delete|enable|disable|password|role|rename|types|config [set]` and
+  `redfish session list|clear|config`:
+
+```sh
+redfish ... accounts list
+redfish ... accounts add bob --role Operator --new-password-file ~/.bob-pw     # or --new-password-stdin
+printf '%s\n' "$NEWPW" | redfish ... accounts password bob --new-password-stdin
+redfish ... accounts --id 3 rename carol        # an account is a USERNAME, or --id (its Id)
+redfish ... accounts config set --set MinPasswordLength=12
+redfish ... session list ; redfish ... session clear ; redfish ... session config --set SessionTimeout=600
+```
+
+  **The password of an account comes from a file of mode 0600 or from the standard input, never from a flag or the
+  environment**, and is never printed. `session clear` ends the session it runs with last.
+- **Mock**: account create, PATCH (rename, enable, disable, role, password) and delete under the AccountService
+  rules (unique names, a role of the service, `MinPasswordLength`, a disabled account cannot log in,
+  `PasswordChangeRequired` answers 403 with the `Base` message), the `Allow` header, and `Options.FixedSlots` /
+  `OmitAllow` for the services with a fixed number of accounts.
+- **Departures from the oracle**: the `Password` of an account is write-only (it reads back null or is absent), so it
+  is never compared with the resource (the oracle's property check would refuse a service that omits it) and a
+  password given is always sent; the Accounts collection is also found under `Links.Accounts` (the DMTF emulator's
+  older AccountService); an account member that cannot be read is skipped as in the oracle, but an authentication
+  failure is not; the Sessions collection falls back to the default path when the root has no `Links.Sessions`;
+  `ClearSessions` reads the members, not `Members@odata.count`, and ends its own session last.
+
+The next releases bring one area each (Update, Storage/Events/Certificates),
 each adding its library functions, CLI commands and PARITY.md rows.
 
 ## What it follows
@@ -206,12 +245,14 @@ Chassis v1.29.0 but still the one most BMCs serve).
 
 ## Status
 
-v0.6.0: the Managers commands, virtual media and logs; v0.5.0: the Chassis commands; v0.4.0: the Systems commands (library, CLI, second mock tree); v0.3.0: the generic client, the mock BMC and the CLI; v0.2.0 and before: the energy reader. Section
+v0.7.0: the Accounts and Sessions commands; v0.6.0: the Managers commands, virtual media and logs; v0.5.0: the Chassis commands; v0.4.0: the Systems commands (library, CLI, second mock tree); v0.3.0: the generic client, the mock BMC and the CLI; v0.2.0 and before: the energy reader. Section
 numbers cited in the code are DSP0266 1.23.0's.
 
 **Performance.** `BenchmarkGet` (one resource of the mock over TLS keep-alive, client and mock in one process,
 Apple M4 Max, one core): 291 allocations per read (exact). The time and the comparison with redfishtool on the
-same mock are **deferred**: the machine's 1-minute load was 12.6, above the limit of 8 for a measurement.
+same mock are **deferred**: the machine's 1-minute load was 12.6, above the limit of 8 for a measurement. The
+Accounts commands are a handful of requests each and add no hot path; their timing against redfishtool is deferred
+too (load 55 on 2026-11-05).
 
 Pre-1.0: the API may change in a minor version. Born in
 [go-llmflow/gateway](https://github.com/go-llmflow/gateway), which bills a node's energy from its BMC.

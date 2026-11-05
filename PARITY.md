@@ -30,16 +30,16 @@ go-redfish is meant to do everything the three Ansible modules `redfish_command`
 | redfish_command | Chassis | IndicatorLedOn | `Client.SetIndicatorLED` | `chassis led on` | `TestChassisIndicatorLED`, `TestChassisLedCommands` | done |
 | redfish_command | Chassis | IndicatorLedOff | `Client.SetIndicatorLED` | `chassis led off` | `TestChassisIndicatorLED`, `TestChassisLedCommands` | done |
 | redfish_command | Chassis | IndicatorLedBlink | `Client.SetIndicatorLED` | `chassis led blink` | `TestChassisIndicatorLED`, `TestChassisLedCommands` | done |
-| redfish_command | Accounts | AddUser |  |  |  | todo (v0.7.0 Accounts) |
-| redfish_command | Accounts | EnableUser |  |  |  | todo (v0.7.0 Accounts) |
-| redfish_command | Accounts | DeleteUser |  |  |  | todo (v0.7.0 Accounts) |
-| redfish_command | Accounts | DisableUser |  |  |  | todo (v0.7.0 Accounts) |
-| redfish_command | Accounts | UpdateUserRole |  |  |  | todo (v0.7.0 Accounts) |
-| redfish_command | Accounts | UpdateUserPassword |  |  |  | todo (v0.7.0 Accounts) |
-| redfish_command | Accounts | UpdateUserName |  |  |  | todo (v0.7.0 Accounts) |
-| redfish_command | Accounts | UpdateUserAccountTypes |  |  |  | todo (v0.7.0 Accounts) |
-| redfish_command | Accounts | UpdateAccountServiceProperties |  |  |  | todo (v0.7.0 Accounts) |
-| redfish_command | Sessions | ClearSessions |  |  |  | todo (v0.3.0 Sessions) |
+| redfish_command | Accounts | AddUser | `Client.AddUser` | `accounts add` | `TestAccountLifecycle`, `TestAddUserWithoutAPlaceToPut`, `TestAccountsCommands`, `TestAccountPasswordSources`, `TestAnErrorNeverCarriesThePassword`, `FuzzAccountReads` | done |
+| redfish_command | Accounts | EnableUser | `Client.EnableUser` | `accounts enable` | `TestAccountLifecycle`, `TestAccountsCommands` | done |
+| redfish_command | Accounts | DeleteUser | `Client.DeleteUser` | `accounts delete` | `TestAccountLifecycle`, `TestAccountsCommands` | done |
+| redfish_command | Accounts | DisableUser | `Client.DisableUser` | `accounts disable` | `TestAccountLifecycle`, `TestAccountsCommands` | done |
+| redfish_command | Accounts | UpdateUserRole | `Client.UpdateUserRole` | `accounts role` | `TestAccountLifecycle`, `TestAccountsCommands` | done |
+| redfish_command | Accounts | UpdateUserPassword | `Client.UpdateUserPassword`, `PasswordChangeURI` | `accounts password` | `TestAccountLifecycle`, `TestPasswordChangeRequired`, `TestAccountsCommands`, `TestAccountPasswordSources`, `TestAnErrorNeverCarriesThePassword`, `FuzzPasswordChangeURI`, `FuzzReadPassword` | done |
+| redfish_command | Accounts | UpdateUserName | `Client.UpdateUserName` | `accounts rename` | `TestAccountLifecycle`, `TestAccountsCommands` | done |
+| redfish_command | Accounts | UpdateUserAccountTypes | `Client.UpdateUserAccountTypes` | `accounts types` | `TestAccountLifecycle`, `TestAccountsCommands` | done |
+| redfish_command | Accounts | UpdateAccountServiceProperties | `Client.UpdateAccountServiceProperties` | `accounts config set` | `TestAccountServiceConfig`, `TestAccountsCommands` | done |
+| redfish_command | Sessions | ClearSessions | `Client.ClearSessions` | `session clear` | `TestSessions`, `TestSessionCommands` | done |
 | redfish_command | Sessions | CreateSession | `Client.Login`, `Client.Session` | `session login` | `TestSessionLoginResumeAndLogout`, `TestSessionLoginUseLogout` | done |
 | redfish_command | Sessions | DeleteSession | `Client.Close`, `Client.Delete` | `session logout`, `raw delete` | `TestSessionLoginResumeAndLogout`, `TestSessionLoginUseLogout` | done |
 | redfish_command | Manager | GracefulRestart | `Client.ManagerPower` (maps it to PowerGracefulRestart), `Client.WaitAvailable` | `managers power GracefulRestart [--wait]` | `TestManagerPower`, `TestWaitAvailable`, `TestManagersReadsAndReset` | done |
@@ -69,7 +69,7 @@ go-redfish is meant to do everything the three Ansible modules `redfish_command`
 | redfish_config | Manager | SetManagerNic | `Client.SetManagerNIC` | `managers nic set` | `TestManagerNICs`, `TestManagersConfig` | done |
 | redfish_config | Manager | SetHostInterface | `Client.SetHostInterface` | `managers host-interface set` | `TestHostInterfaces`, `TestManagersConfig` | done |
 | redfish_config | Manager | SetServiceIdentification | `Client.SetServiceIdentification` | `managers service-id set` | `TestManagerDateTimeAndServiceIdentification`, `TestManagersConfig` | done |
-| redfish_config | Sessions | SetSessionService |  |  |  | todo (v0.3.0 Sessions) |
+| redfish_config | Sessions | SetSessionService | `Client.SetSessionService` | `session config` | `TestSessions`, `TestSessionCommands` | done |
 | redfish_info | Systems | GetSystemInventory | `Client.SystemInventory` | `systems inventory system` | `TestInventories`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
 | redfish_info | Systems | GetPsuInventory | `Client.PSUInventory` | `systems inventory psu` | `TestInventories`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
 | redfish_info | Systems | GetCpuInventory | `Client.CPUInventory` | `systems inventory cpu` | `TestInventories`, `TestSystemsSecureBootPolicyLedAssetTagInventoryHealth` | done |
@@ -93,9 +93,9 @@ go-redfish is meant to do everything the three Ansible modules `redfish_command`
 | redfish_info | Chassis | GetHealthReport | `Client.ChassisHealthReports`, `Client.ChassisHealthReport` | `chassis health` | `TestChassisOracleReads`, `TestChassisCommands` | done |
 | redfish_info | Chassis | GetHPEThermalConfig | `Client.HPEThermalConfig` | `chassis hpe thermal-config` | `TestChassisLegacyAbsenceAndHPE`, `TestChassisCommands` | done |
 | redfish_info | Chassis | GetHPEFanPercentMin | `Client.HPEFanPercentMin` | `chassis hpe fan-percent-min` | `TestChassisLegacyAbsenceAndHPE`, `TestChassisCommands` | done |
-| redfish_info | Accounts | ListUsers |  |  |  | todo (v0.7.0 Accounts) |
-| redfish_info | Accounts | GetAccountServiceConfig |  |  |  | todo (v0.7.0 Accounts) |
-| redfish_info | Sessions | GetSessions |  |  |  | todo (v0.3.0 Sessions) |
+| redfish_info | Accounts | ListUsers | `Client.ListUsers` | `accounts list` | `TestAccountLifecycle`, `TestAccountsCommands`, `FuzzAccountReads` | done |
+| redfish_info | Accounts | GetAccountServiceConfig | `Client.AccountServiceConfig` | `accounts config` | `TestAccountServiceConfig`, `TestAccountsCommands` | done |
+| redfish_info | Sessions | GetSessions | `Client.GetSessions` | `session list` | `TestSessions`, `TestSessionCommands` | done |
 | redfish_info | Update | GetFirmwareInventory |  |  |  | todo (v0.8.0 Update) |
 | redfish_info | Update | GetFirmwareUpdateCapabilities |  |  |  | todo (v0.8.0 Update) |
 | redfish_info | Update | GetSoftwareInventory |  |  |  | todo (v0.8.0 Update) |
@@ -117,7 +117,7 @@ go-redfish is meant to do everything the three Ansible modules `redfish_command`
 | `versions`, `root`, `odata`, `metadata` | `raw get /redfish`, `/redfish/v1/`, `/redfish/v1/odata`, `/redfish/v1/$metadata` (`TestRawPutHeadVersionsOdataMetadata`) | done |
 | `raw GET|PATCH|POST|DELETE|HEAD|PUT` | `raw get|patch|post|delete|head|put` (`Client.Do`; `TestRawPatchPostDelete`, `TestRawPutHeadVersionsOdataMetadata`) | done |
 | `SessionService login`, `logout` | the Sessions rows above | done |
-| `SessionService setSessionTimeout`, `Sessions list`, `patch` | `SetSessionService`, `GetSessions` | todo (v0.3.0 Sessions) |
+| `SessionService setSessionTimeout`, `Sessions list`, `patch` | `session config --set SessionTimeout=N`, `session list`; `session clear` is the ClearSessions row (`TestSessions`, `TestSessionCommands`) | done |
 | `Systems list|get|patch`, `Processors`, `Inventory`, `EthernetInterfaces`, `SimpleStorage` | `systems list`, `systems inventory` (`system`, `cpu`, `memory`, `nic`, `psu`), `raw get`, `raw patch` (`TestSystemsListAndPower`, `TestInventories`); `SimpleStorage` is the GetStorageControllerInventory row | done, except `SimpleStorage` (todo v0.9.0 Storage) |
 | `Systems reset`, `setAssetTag`, `setIndicatorLed`, `setBootOverride` | `systems power`, `systems led`, `systems boot-override set`; `setAssetTag` has no Ansible row: added as `Client.SetAssetTag`, `systems asset-tag` (`TestPowerCommands`, `TestSecureBootPowerRestoreLedAndAssetTag`) | done |
 | `Systems Logs`, `clearLog`; Chassis and Managers likewise | `GetLogs`, `ClearLogs` for a manager (`managers logs`, `managers logs clear`); the same functions read and clear the LogServices of a system and of a chassis (`systems logs`, `chassis logs`; `TestLogsAndClearLogs`, `TestLogsAndVirtualMediaCommands`) | done |
@@ -126,7 +126,7 @@ go-redfish is meant to do everything the three Ansible modules `redfish_command`
 | `Managers reset`, `NetworkProtocol`, `EthernetInterfaces` | `managers power`, `managers network-protocols get` and `set`, `managers nic get` and `set` (the `GracefulRestart`, `SetNetworkProtocols`, `SetManagerNic`, `GetNetworkProtocols` and `GetManagerNicInventory` rows) | done |
 | `Managers setDateTime`, `setTimeOffset` | no Ansible row: added as `Client.SetManagerDateTime`, `Client.ManagerDateTime`, `managers datetime get` and `set` (and `Client.SetNTP`, `managers ntp set`, a flat view of the NTP service of SetNetworkProtocols) (`TestManagerDateTimeAndServiceIdentification`, `TestNetworkProtocolsAndNTP`, `TestManagersConfig`) | done |
 | `Managers SerialInterfaces` | N/A: no Ansible row and no write; `raw get /redfish/v1/Managers/ID/SerialInterfaces` reads them | N/A |
-| `AccountService adduser|deleteuser|setpassword|useradmin|setusername|Accounts|Roles` | the Accounts rows | todo (v0.7.0 Accounts) |
+| `AccountService adduser`, `deleteuser`, `setpassword`, `useradmin`, `setusername`, `Accounts`, `Roles` | `accounts add`, `delete`, `password`, `role`, `rename`, `list`, `config`, and `accounts roles` (`Client.Roles`: no Ansible row, a read of the Roles collection; `TestAccountLifecycle`, `TestAccountsCommands`); `useradmin` is `accounts enable`, `disable` and `role` | done |
 | `hello`, `about`, `examples` (developer commands) | N/A: they print redfishtool's own help | N/A |
 | `-W/--Wait`, `-C/--CheckRedfishVersion`, `-R/--RedfishVersion` | `Client.Root` reports RedfishVersion; the CLI does not wait for or select a protocol version: Redfish has one major version, v1, in the URL (DSP0266 7.2.3) | N/A |
 | `-A None|Basic|Session`, `-S Secure` | basic and session are `--password-file` and `session login`; "None" and non-https are refused on purpose (DSP0266 13.3.3: basic needs HTTPS; a password is never sent in clear) | N/A |

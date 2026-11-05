@@ -18,6 +18,9 @@
 //     PowerState; UpdateService.SimpleUpdate answers 202 with a Task monitor in
 //     Location and Retry-After (12.2), which answers 202 until it
 //     completes and then 200 with the Task;
+//   - the Accounts collection follows the AccountService rules (accounts.go:
+//     unique names, roles, MinPasswordLength, disabled and PasswordChangeRequired
+//     accounts, an Allow header, services with a fixed number of accounts);
 //   - an error is the Redfish error object with @Message.ExtendedInfo (8.6,
 //     9.5.11).
 //
@@ -66,6 +69,16 @@ type Options struct {
 	// TaskPolls is how many times a Task monitor answers 202 before the task
 	// completes (default 2).
 	TaskPolls int
+	// FixedSlots, when above 0, makes the service one with a fixed number of
+	// accounts, as some BMCs are: the Accounts collection has that many members
+	// (empty slots have an empty UserName and are disabled), and an account is
+	// created by a PATCH of a slot and removed by a PATCH that empties it: POST
+	// to the collection and DELETE of a member answer 405.
+	FixedSlots int
+	// OmitAllow leaves the Allow header out of the answers (RFC 9110 10.2.1 makes
+	// it optional on a 2xx), so that a client learns what is not allowed only
+	// from the 405.
+	OmitAllow bool
 }
 
 // BMC is the mock service. Handler serves it; it is safe for concurrent use.
@@ -138,6 +151,7 @@ func New(o Options) (*BMC, error) {
 	}
 	b.tree = mockupRoot
 	b.augment(o.Tree)
+	b.augmentAccounts()
 	// A tree without a Sessions collection gets one, so that a session can be
 	// opened (DSP0266 13.3.4.2).
 	sp := root + "/SessionService/Sessions"
@@ -215,7 +229,11 @@ func (b *BMC) authenticated(r *http.Request) bool {
 	}
 	if u, p, ok := r.BasicAuth(); ok {
 		want, have := b.accounts[u]
-		return have && subtle.ConstantTimeCompare([]byte(want), []byte(p)) == 1
+		if !have || subtle.ConstantTimeCompare([]byte(want), []byte(p)) != 1 {
+			return false
+		}
+		_, enabled, _ := b.accountOf(u)
+		return enabled
 	}
 	return false
 }
@@ -243,6 +261,9 @@ func (b *BMC) serve(w http.ResponseWriter, r *http.Request) {
 	if !open && !b.authenticated(r) {
 		w.Header().Set("WWW-Authenticate", `Basic realm="mockbmc"`)
 		b.fail(w, http.StatusUnauthorized, "", "Authentication is required.", "Base.1.19.NoValidSession")
+		return
+	}
+	if !open && b.passwordChangeRefused(w, r, p) {
 		return
 	}
 	switch {
@@ -304,6 +325,9 @@ func (b *BMC) get(w http.ResponseWriter, r *http.Request, p string) {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
+	if !b.opts.OmitAllow {
+		w.Header().Set("Allow", b.allowed(p))
+	}
 	writeJSON(w, http.StatusOK, m, tag)
 }
 
@@ -352,11 +376,8 @@ func (b *BMC) patch(w http.ResponseWriter, r *http.Request, p string) {
 	for _, ro := range []string{"@odata.id", "@odata.type", "Id"} {
 		delete(in, ro)
 	}
-	if pw, ok := in["Password"].(string); ok && strings.HasPrefix(p, root+"/AccountService/Accounts/") {
-		if u, _ := m["UserName"].(string); u != "" {
-			b.accounts[u] = pw
-		}
-		delete(in, "Password")
+	if strings.HasPrefix(p, accountsRoot+"/") && !b.accountPatch(w, m, in) {
+		return
 	}
 	// A Settings object of a Bios resource with ApplyTime Immediate changes the
 	// attributes in force at once (DSP0266 7.12); otherwise they stay pending.
@@ -412,7 +433,8 @@ func (b *BMC) post(w http.ResponseWriter, r *http.Request, p string) {
 		b.fail(w, http.StatusNotFound, "", "The requested resource was not found.", "Base.1.19.ResourceNotFound")
 		return
 	}
-	if _, isColl := coll["Members"]; !isColl || !creatable[p] {
+	if _, isColl := coll["Members"]; !isColl || !creatable[p] || (p == accountsRoot && b.opts.FixedSlots > 0) {
+		w.Header().Set("Allow", b.allowed(p))
 		b.fail(w, http.StatusMethodNotAllowed, "", "POST is not supported on this resource.", "Base.1.19.ActionNotSupported")
 		return
 	}
@@ -423,20 +445,27 @@ func (b *BMC) post(w http.ResponseWriter, r *http.Request, p string) {
 		id = strconv.Itoa(n)
 	}
 	mp := p + "/" + id
-	if strings.HasPrefix(p, root+"/AccountService/Accounts") {
+	if p == accountsRoot {
 		u, _ := in["UserName"].(string)
 		pw, _ := in["Password"].(string)
 		if u == "" || pw == "" {
 			b.fail(w, http.StatusBadRequest, "", "UserName and Password are required.", "Base.1.19.PropertyMissing")
 			return
 		}
-		if _, dup := b.accounts[u]; dup {
+		if b.nameTaken(u, "") {
 			b.fail(w, http.StatusConflict, "", "The account already exists.", "Base.1.19.ResourceAlreadyExists")
+			return
+		}
+		if !b.checkAccountProps(w, in, pw) {
 			return
 		}
 		b.accounts[u] = pw
 		delete(in, "Password")
 		in["Enabled"] = true
+		in["Locked"] = false
+		if _, ok := in["RoleId"]; !ok {
+			in["RoleId"] = b.defaultRole()
+		}
 	}
 	in["Id"] = id
 	b.addMember(p, mp, in)
@@ -448,6 +477,17 @@ func (b *BMC) addMember(coll, member string, m map[string]any) {
 	m["@odata.id"] = member
 	b.res[member] = m
 	c := b.res[coll]
+	if _, ok := c["Members"]; !ok {
+		// A pre-1.0 collection lists its members under Links.
+		if l, _ := c["Links"].(map[string]any); l != nil {
+			if _, ok := l["Members"]; ok {
+				ms, _ := l["Members"].([]any)
+				l["Members"] = append(ms, map[string]any{"@odata.id": member})
+				l["Members@odata.count"] = len(ms) + 1
+				return
+			}
+		}
+	}
 	ms, _ := c["Members"].([]any)
 	c["Members"] = append(ms, map[string]any{"@odata.id": member})
 	c["Members@odata.count"] = len(ms) + 1
@@ -461,7 +501,8 @@ func (b *BMC) del(w http.ResponseWriter, p string) {
 	}
 	coll := path.Dir(p)
 	c, isMember := b.res[coll]
-	if _, hasMembers := c["Members"]; !isMember || !hasMembers || !creatable[coll] {
+	if _, hasMembers := c["Members"]; !isMember || !hasMembers || !creatable[coll] || (coll == accountsRoot && b.opts.FixedSlots > 0) {
+		w.Header().Set("Allow", b.allowed(p))
 		b.fail(w, http.StatusMethodNotAllowed, "", "DELETE is not supported on this resource.", "Base.1.19.ActionNotSupported")
 		return
 	}

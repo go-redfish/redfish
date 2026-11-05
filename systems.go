@@ -248,6 +248,13 @@ func sameJSON(a, b any) bool {
 // property it does not have is ErrUnsupported, and nothing is sent when it
 // already holds every value.
 func (c *Client) PatchChecked(ctx context.Context, uri string, payload Props) (Outcome, error) {
+	return c.patchChecked(ctx, uri, payload, nil)
+}
+
+// patchChecked is PatchChecked with write-only properties (a password): they are
+// sent with the payload, are never compared with the resource, and make the
+// change certain.
+func (c *Client) patchChecked(ctx context.Context, uri string, payload, writeOnly Props) (Outcome, error) {
 	cur, resp, err := c.getProps(ctx, uri)
 	if err != nil {
 		return Outcome{}, err
@@ -256,12 +263,22 @@ func (c *Client) PatchChecked(ctx context.Context, uri string, payload Props) (O
 	if bad != "" {
 		return Outcome{}, fmt.Errorf("%w: %s does not support the property %s", ErrUnsupported, uri, bad)
 	}
-	if !changes {
+	if !changes && len(writeOnly) == 0 {
 		return Outcome{Message: "Properties in " + uri + " are already set"}, nil
 	}
 	tag := resp.ETag()
 	if tag == "" {
 		tag = str(cur, "@odata.etag")
+	}
+	if len(writeOnly) > 0 {
+		merged := Props{}
+		for k, v := range payload {
+			merged[k] = v
+		}
+		for k, v := range writeOnly {
+			merged[k] = v
+		}
+		payload = merged
 	}
 	r, err := c.Patch(ctx, uri, payload, tag)
 	if err != nil {

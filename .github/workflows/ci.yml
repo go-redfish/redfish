@@ -46,6 +46,9 @@ jobs:
           - {target: FuzzNetworkProtocolPayload, pkg: .}
           - {target: FuzzParseLogEntries, pkg: .}
           - {target: FuzzManagerReads, pkg: .}
+          - {target: FuzzAccountReads, pkg: .}
+          - {target: FuzzPasswordChangeURI, pkg: .}
+          - {target: FuzzReadPassword, pkg: ./cmd/redfish}
           - {target: FuzzPropFlags, pkg: ./cmd/redfish}
           - {target: FuzzRenderTable, pkg: ./cmd/redfish}
     steps:
