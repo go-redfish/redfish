@@ -324,10 +324,11 @@ v0.9.0: the Storage commands (parity 99/99); v0.8.0: the UpdateService commands;
 numbers cited in the code are DSP0266 1.23.0's.
 
 **Performance.** `BenchmarkGet` (one resource of the mock over TLS keep-alive, client and mock in one process,
-Apple M4 Max, one core): 291 allocations per read (exact). The time and the comparison with redfishtool on the
-same mock are **deferred**: the machine's 1-minute load was 12.6, above the limit of 8 for a measurement. The
-Accounts commands are a handful of requests each and add no hot path; their timing against redfishtool is deferred
-too (load 55 on 2026-11-05).
+Apple M4 Max, one core): 291 allocations per read (exact). **Against redfishtool** (DMTF's CLI, 1.1.8),
+one CLI invocation on the same mock, measured 2026-11-06 at load ~4.5 (three rounds, see
+[BENCHMARKS.md](BENCHMARKS.md)): a raw GET of the ComputerSystem takes **4.6–5.3 ms** with `redfish`
+and **69–75 ms** with `redfishtool`. Most of that gap is the Python interpreter starting on every call.
+`redfishtool` also never verifies the BMC's certificate (`verify=False`); `redfish` does, at no measurable cost.
 
 Pre-1.0: the API may change in a minor version. Born in
 [go-llmflow/gateway](https://github.com/go-llmflow/gateway), which bills a node's energy from its BMC.
