@@ -354,6 +354,38 @@ redfish ... certs replace ID --cert-file other.pem --key-file other.key       # 
 - **Not implemented**: decoding PKCS7 and PKCS12, automatic enrollment, ForceAutomaticRenew, SPDM and UEFI
   properties, encrypted keys (see PARITY.md).
 
+## Query parameters (v0.12.0)
+
+Beyond the Ansible modules, which send none: the query parameters of DSP0266 1.23.0 7.3, to cut the number of requests
+to a BMC. The reference is the specification (7.3.1 overview, 7.3.2 `$expand`, 7.3.3 `$select`, 7.3.4 `$filter`, 9.6.10
+count; the `ProtocolFeaturesSupported` of the ServiceRoot 1.22.0 schema, DSP8010 2025.4). A client may only use a
+parameter the service advertises there, so the root is read once per client (`Client.ProtocolFeatures`) and a
+parameter that is not advertised is refused with `ErrUnsupported`, naming the feature, and never sent. Each capability is
+a row of the section "Beyond the Ansible modules" of [PARITY.md](PARITY.md).
+
+- **Library** (`query.go`, `expand.go`): `ProtocolFeatures`, `Query{Expand, Select, Top, Skip, Only, Excerpt, Filter}`,
+  `Query.Encode`, `Client.GetWith`. Values are validated (`ErrQuery`): `$select` is names joined by slashes, `$filter` is
+  parsed with the grammar of 7.3.4 (comparison, `and`, `or`, `not`, parentheses, literals), `only` is never combined
+  with another parameter, and a value is percent-encoded so that it cannot add a parameter. The read paths that were N+1
+  now send `$expand=.` when the root advertises it (`CPUInventory`, `MemoryInventory`, `NICInventory`,
+  `ChassisSensors`, the power and thermal subsystems, `ChassisInventory`, `FirmwareInventory`, `SoftwareInventory`,
+  `ListUsers`, `Roles`, `Subscriptions`), and read the members one by one when it does not, when `Config.NoExpand` is
+  set, or when the expanded answer fails (501, 507, too large): the answers are the same. Against the mock,
+  `ChassisSensors` takes 2 requests instead of 43, `CPUInventory` 2 instead of 5.
+- **CLI**: `redfish raw get PATH --expand N [--expand-kind nolinks|links|all] --select A,B --top N --skip N --only
+  --excerpt --filter EXPR`, each refused when it is not advertised; the global `--no-expand` forces the per-member reads of
+  the inventory and listing commands (the default is to expand when advertised).
+- **Bounds**: an expanded answer may be larger than a plain one, so a request with `$expand` is bounded by
+  `MaxExpandedBody` (8 MiB), never unbounded; every other body stays bounded by `MaxBody` (1 MiB).
+- **Mock**: the rackmount tree advertises and implements `$expand` (`.`, `~`, `*`, `$levels`), `$select`, `$filter`, `$top`,
+  `$skip`, `only` and `excerpt` (the mockups have no Excerpt annotation: the whole resource, as 7.3.1 says); the
+  emulator tree, and `NoQueries`, advertise nothing and answer 501 to a `$` parameter and ignore the others, as 7.3.1
+  says. `Queries()` logs the raw query of each request.
+- **Fuzzed**: `FuzzQueryEncode`, `FuzzParseProtocolFeatures` (committed seeds under `testdata/fuzz`).
+- **Not implemented**: `includeoriginofcondition` (it belongs to the event stream), `$skiptoken` (opaque, followed
+  through the next link), OEM parameters, `$expand` on the reads that follow links across resources (storage, virtual
+  media, health reports), and `$expand` of the log entries (they are already expanded by the schema, 9.13.11).
+
 ## What it follows
 
 Each rule comes from a document opened on 2026-11-05 (see the package documentation for the details):
@@ -365,7 +397,7 @@ contains, so `Read` returns the first chassis with a reading and never adds chas
 ## Safety
 
 https only; certificates verified (a CA file, else the system roots); TLS 1.2 or later; no redirect
-followed; every body bounded to 1 MiB; every request under a timeout; credentials resolved per request
+followed; every body bounded to 1 MiB (8 MiB for a request with `$expand`); every request under a timeout; credentials resolved per request
 through the `Credentials` interface; no error carries a credential; a reading that is null, negative,
 not finite or out of range is dropped. Errors are typed (`ErrAuth`, `ErrNotFound`, `ErrTooLarge`,
 `ErrMalformed`, `ErrNoReading`, `ErrInsecure`, `*StatusError`). The JSON decoders are fuzzed.
@@ -392,7 +424,7 @@ Chassis v1.29.0 but still the one most BMCs serve).
 
 ## Status
 
-v0.11.0: the CertificateService and its certificates (beyond the Ansible parity); v0.10.0: the EventService, subscriptions and the SSE stream (beyond the Ansible parity); v0.9.0: the Storage commands (parity 99/99); v0.8.0: the UpdateService commands; v0.7.0: the Accounts and Sessions commands; v0.6.0: the Managers commands, virtual media and logs; v0.5.0: the Chassis commands; v0.4.0: the Systems commands (library, CLI, second mock tree); v0.3.0: the generic client, the mock BMC and the CLI; v0.2.0 and before: the energy reader. Section
+v0.12.0: the query parameters, `$expand` in the read paths (beyond the Ansible parity); v0.11.0: the CertificateService and its certificates (beyond the Ansible parity); v0.10.0: the EventService, subscriptions and the SSE stream (beyond the Ansible parity); v0.9.0: the Storage commands (parity 99/99); v0.8.0: the UpdateService commands; v0.7.0: the Accounts and Sessions commands; v0.6.0: the Managers commands, virtual media and logs; v0.5.0: the Chassis commands; v0.4.0: the Systems commands (library, CLI, second mock tree); v0.3.0: the generic client, the mock BMC and the CLI; v0.2.0 and before: the energy reader. Section
 numbers cited in the code are DSP0266 1.23.0's.
 
 **Performance.** `BenchmarkGet` (one resource of the mock over TLS keep-alive, client and mock in one process,

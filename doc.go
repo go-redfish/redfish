@@ -42,7 +42,8 @@
 // # Safety
 //
 // https only, certificates verified (against a CA file when given), TLS 1.2 or
-// later, no redirect followed, every body bounded to MaxBody, every request
+// later, no redirect followed, every body bounded to MaxBody (MaxExpandedBody for
+// a request with $expand), every request
 // under a timeout, credentials resolved per request through Credentials, and no
 // error carries a credential. A reading that is null, negative, not finite or
 // out of range is dropped by the parsers, which are fuzzed.

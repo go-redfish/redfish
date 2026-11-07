@@ -21,6 +21,9 @@
 //   - the Accounts collection follows the AccountService rules (accounts.go:
 //     unique names, roles, MinPasswordLength, disabled and PasswordChangeRequired
 //     accounts, an Allow header, services with a fixed number of accounts);
+//   - the query parameters of 7.3 ($expand, $select, $filter, $top, $skip, only,
+//     excerpt) on TreeRackmount, advertised in ProtocolFeaturesSupported; the
+//     other tree advertises nothing (query.go);
 //   - an error is the Redfish error object with @Message.ExtendedInfo (8.6,
 //     9.5.11).
 //
