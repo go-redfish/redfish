@@ -1,6 +1,7 @@
 package redfish
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/ecdsa"
@@ -407,7 +408,9 @@ func ParseX509(certString string) (X509Info, error) {
 		info.IPAddresses = append(info.IPAddresses, ip.String())
 	}
 	info.IsCA = leaf.IsCA
-	info.SelfSigned = leaf.CheckSignatureFrom(leaf) == nil
+	// Self-signed: the subject is the issuer and the signature verifies with the
+	// certificate's own key (CheckSignatureFrom would also want a CA).
+	info.SelfSigned = bytes.Equal(leaf.RawSubject, leaf.RawIssuer) && leaf.CheckSignature(leaf.SignatureAlgorithm, leaf.RawTBSCertificate, leaf.Signature) == nil
 	info.SHA256Fingerprint = colonHex(sum[:])
 	return info, nil
 }

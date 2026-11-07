@@ -51,6 +51,7 @@ type certState struct {
 	held     map[string]crypto.Signer // certificate path -> its key, when the service holds it
 	received []map[string]any         // the bodies of the installs and replacements, as sent
 	csrs     []map[string]any         // the bodies of the GenerateCSR, Rekey and Renew requests
+	nextID   int                      // the next certificate Id
 }
 
 const certLocations = root + "/CertificateService/CertificateLocations"
@@ -193,10 +194,19 @@ func (b *BMC) rekeyInfo(uri string) {
 }
 
 func (b *BMC) augmentCertificates() {
-	b.cs = &certState{held: map[string]crypto.Signer{}}
+	b.cs = &certState{held: map[string]crypto.Signer{}, nextID: 2}
 	const https = root + "/Managers/BMC/NetworkProtocol/HTTPS/Certificates/1"
 	if b.res[root+"/CertificateService"] == nil || b.res[https] == nil {
 		return
+	}
+	// The mockup's GenerateCSR ActionInfo lacks the parameters of the schema that
+	// are not subject names of the first kind.
+	if ai := b.res[root+"/CertificateService/GenerateCSRActionInfo"]; ai != nil {
+		params, _ := ai["Parameters"].([]any)
+		for _, n := range []string{"ChallengePassword", "GivenName", "Surname", "Initials", "ContactPerson", "UnstructuredName"} {
+			params = append(params, map[string]any{"Name": n, "Required": false, "DataType": "String"})
+		}
+		ai["Parameters"] = params
 	}
 	certPEM, key, err := selfSigned("manager.contoso.org", []string{"manager.contoso.org", "manager.contoso.com"})
 	if err != nil {
@@ -352,10 +362,12 @@ func (b *BMC) locationsDel(uri string) {
 
 // newCertificate adds an accepted certificate to a collection and returns its path.
 func (b *BMC) newCertificate(coll string, a accepted, typ string) string {
-	n := len(b.res[coll]["Members"].([]any)) + 1
+	// Ids are never reused, even after a delete or a replacement.
+	n := max(b.cs.nextID, len(b.res[coll]["Members"].([]any))+1)
 	for b.res[coll+"/"+strconv.Itoa(n)] != nil {
 		n++
 	}
+	b.cs.nextID = n + 1
 	uri := coll + "/" + strconv.Itoa(n)
 	b.addMember(coll, uri, certResource(uri, a.pem, typ, a.leaf))
 	b.rekeyInfo(uri)
