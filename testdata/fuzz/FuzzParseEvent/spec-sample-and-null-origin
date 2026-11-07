@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"@odata.type\":\"#Event.v1_6_0.Event\",\"Id\":1,\"Context\":\"ABCDEFGH\",\"Events\":[{\"MemberId\":\"1\",\"EventType\":\"Alert\",\"MessageId\":\"Alert.1.0.LanDisconnect\",\"MessageArgs\":[\"EthernetInterface 1\",null,2],\"OriginOfCondition\":null,\"EventGroupId\":-1}]}")

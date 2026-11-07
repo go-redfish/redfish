@@ -91,6 +91,15 @@ type Options struct {
 	// AsyncVolumes makes the creation and the deletion of a volume answer 202 with
 	// a task monitor (the change is made at once) instead of 201 and 204.
 	AsyncVolumes bool
+	// EventPad adds that many bytes to the Message of every event of the stream
+	// (events.go): a test makes an event larger than a client's limit with it.
+	EventPad int
+	// SSEDropAfter, when above 0, breaks the first SSE connection after that many
+	// events were sent, without ending the stream (a network error), so that the
+	// client's reconnection with Last-Event-ID is exercised.
+	SSEDropAfter int
+	// EventsDisabled makes the EventService answer ServiceEnabled false.
+	EventsDisabled bool
 }
 
 // BMC is the mock service. Handler serves it; it is safe for concurrent use.
@@ -110,6 +119,10 @@ type BMC struct {
 	uploads []Upload
 	simple  []map[string]any
 	resets  []string
+	// events.go
+	ev         *eventHub
+	subscribed []map[string]any
+	testEvents []map[string]any
 }
 
 type task struct {
@@ -215,6 +228,13 @@ type statusWriter struct {
 
 func (w *statusWriter) WriteHeader(c int) { w.code = c; w.ResponseWriter.WriteHeader(c) }
 
+// Flush lets a stream (the SSE endpoint) send what it has written.
+func (w *statusWriter) Flush() {
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
 // Handler is the service.
 func (b *BMC) Handler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -303,6 +323,8 @@ func (b *BMC) serve(w http.ResponseWriter, r *http.Request) {
 		b.createVolume(w, r, p)
 	case r.Method == http.MethodDelete && b.res[p] != nil && b.isVolumes(path.Dir(p)):
 		b.deleteVolume(w, p)
+	case r.Method == http.MethodGet && p == sseURI && b.res[root+"/EventService"]["ServerSentEventUri"] == sseURI:
+		b.sse(w, r)
 	case r.Method == http.MethodGet || r.Method == http.MethodHead:
 		b.get(w, r, p)
 	case r.Method == http.MethodPut:
@@ -487,6 +509,9 @@ func (b *BMC) post(w http.ResponseWriter, r *http.Request, p string) {
 		if _, ok := in["RoleId"]; !ok {
 			in["RoleId"] = b.defaultRole()
 		}
+	}
+	if p == subsRoot && !b.checkSubscription(w, in) {
+		return
 	}
 	in["Id"] = id
 	b.addMember(p, mp, in)
@@ -679,6 +704,8 @@ func (b *BMC) action(w http.ResponseWriter, r *http.Request, p string) {
 			m["PowerState"] = "Off"
 		}
 		w.WriteHeader(http.StatusNoContent)
+	case isAction(name, "SubmitTestEvent"):
+		b.submitTestEvent(w, in)
 	case isAction(name, "SimpleUpdate"):
 		if u, _ := in["ImageURI"].(string); u == "" {
 			b.fail(w, http.StatusBadRequest, "", "ImageURI is required.", "Base.1.19.ActionParameterMissing")
