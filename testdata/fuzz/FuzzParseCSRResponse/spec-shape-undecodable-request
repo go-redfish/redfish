@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"CSRString\":\"-----BEGIN CERTIFICATE REQUEST-----\\nMIIB\\n-----END CERTIFICATE REQUEST-----\\n\",\"Certificate\":{\"@odata.id\":\"/redfish/v1/Managers/BMC/NetworkProtocol/HTTPS/Certificates/1\"}}")

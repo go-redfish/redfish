@@ -26,7 +26,7 @@ func checkBeyondRows(t *testing.T) {
 	tests := testNames(t)
 	rows := 0
 	for _, line := range strings.Split(string(doc), "\n") {
-		if !strings.HasPrefix(line, "| DSP0266") && !strings.HasPrefix(line, "| WHATWG") && !strings.HasPrefix(line, "| EventService") {
+		if !strings.HasPrefix(line, "| DSP0266") && !strings.HasPrefix(line, "| WHATWG") && !strings.HasPrefix(line, "| EventService") && !strings.HasPrefix(line, "| DSP8010") {
 			continue
 		}
 		cells := strings.Split(strings.Trim(line, "| "), " | ")
