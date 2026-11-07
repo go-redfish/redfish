@@ -123,6 +123,8 @@ type BMC struct {
 	ev         *eventHub
 	subscribed []map[string]any
 	testEvents []map[string]any
+	// certs.go
+	cs *certState
 }
 
 type task struct {
@@ -476,6 +478,10 @@ func (b *BMC) post(w http.ResponseWriter, r *http.Request, p string) {
 		b.fail(w, http.StatusNotFound, "", "The requested resource was not found.", "Base.1.19.ResourceNotFound")
 		return
 	}
+	if b.isCertColl(p) {
+		b.postCertificate(w, in, p)
+		return
+	}
 	if _, isColl := coll["Members"]; !isColl || !creatable[p] || (p == accountsRoot && b.opts.FixedSlots > 0) {
 		w.Header().Set("Allow", b.allowed(p))
 		b.fail(w, http.StatusMethodNotAllowed, "", "POST is not supported on this resource.", "Base.1.19.ActionNotSupported")
@@ -547,7 +553,7 @@ func (b *BMC) del(w http.ResponseWriter, p string) {
 	}
 	coll := path.Dir(p)
 	c, isMember := b.res[coll]
-	if _, hasMembers := c["Members"]; !isMember || !hasMembers || !creatable[coll] || (coll == accountsRoot && b.opts.FixedSlots > 0) {
+	if _, hasMembers := c["Members"]; !isMember || !hasMembers || !(creatable[coll] || b.isCertColl(coll)) || (coll == accountsRoot && b.opts.FixedSlots > 0) {
 		w.Header().Set("Allow", b.allowed(p))
 		b.fail(w, http.StatusMethodNotAllowed, "", "DELETE is not supported on this resource.", "Base.1.19.ActionNotSupported")
 		return
@@ -567,6 +573,7 @@ func (b *BMC) del(w http.ResponseWriter, p string) {
 			delete(b.sessions, tok)
 		}
 	}
+	b.deleteCertificate(p)
 	delete(b.res, p)
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -706,6 +713,14 @@ func (b *BMC) action(w http.ResponseWriter, r *http.Request, p string) {
 		w.WriteHeader(http.StatusNoContent)
 	case isAction(name, "SubmitTestEvent"):
 		b.submitTestEvent(w, in)
+	case isAction(name, "GenerateCSR"):
+		b.generateCSR(w, in)
+	case isAction(name, "ReplaceCertificate"):
+		b.replaceCertificate(w, in)
+	case isAction(name, "Rekey") && b.isCert(resPath):
+		b.certAction(w, in, resPath, true)
+	case isAction(name, "Renew") && b.isCert(resPath):
+		b.certAction(w, in, resPath, false)
 	case isAction(name, "SimpleUpdate"):
 		if u, _ := in["ImageURI"].(string); u == "" {
 			b.fail(w, http.StatusBadRequest, "", "ImageURI is required.", "Base.1.19.ActionParameterMissing")
