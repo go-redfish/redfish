@@ -57,6 +57,7 @@ said (its code, message and ExtendedInfo).`,
 		Args: cobra.NoArgs,
 	}
 	var data, ifMatch string
+	var qf queryFlags
 	do := func(method string) func(*cobra.Command, []string) error {
 		return func(cmd *cobra.Command, args []string) error {
 			c, err := g.client(cmd, false)
@@ -67,7 +68,16 @@ said (its code, message and ExtendedInfo).`,
 			if err != nil {
 				return err
 			}
-			resp, err := c.Do(cmd.Context(), redfish.Request{Method: method, Path: args[0], Body: body, IfMatch: ifMatch})
+			q, err := qf.query(cmd)
+			if err != nil {
+				return err
+			}
+			var resp *redfish.Response
+			if method == http.MethodGet && !q.IsZero() {
+				resp, err = c.GetWith(cmd.Context(), args[0], q)
+			} else {
+				resp, err = c.Do(cmd.Context(), redfish.Request{Method: method, Path: args[0], Body: body, IfMatch: ifMatch})
+			}
 			if err != nil {
 				return err
 			}
@@ -96,8 +106,10 @@ said (its code, message and ExtendedInfo).`,
 		}
 		return c
 	}
+	get := mk("get PATH", "GET a resource, with the query parameters of DSP0266 7.3", http.MethodGet, 1, false, false)
+	qf.bind(get)
 	cmd.AddCommand(
-		mk("get PATH", "GET a resource", http.MethodGet, 1, false, false),
+		get,
 		mk("patch PATH", "PATCH properties of a resource", http.MethodPatch, 1, true, true),
 		mk("post PATH", "POST: create a member or invoke an action", http.MethodPost, 1, true, false),
 		mk("delete PATH", "DELETE a resource", http.MethodDelete, 1, false, true),

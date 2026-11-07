@@ -28,7 +28,7 @@ var userConfigDir = os.UserConfigDir
 // globals are the connection flags.
 type globals struct {
 	endpoint, user, passwordFile, caFile string
-	insecure, session                    bool
+	insecure, session, noExpand          bool
 	timeout                              time.Duration
 	output                               string
 }
@@ -138,7 +138,7 @@ func (g *globals) client(cmd *cobra.Command, forSession bool) (*redfish.Client, 
 	if err != nil {
 		return nil, err
 	}
-	cfg := redfish.Config{BaseURL: g.endpoint, CAFile: g.caFile, Timeout: g.timeout, HTTP: hc}
+	cfg := redfish.Config{BaseURL: g.endpoint, CAFile: g.caFile, Timeout: g.timeout, HTTP: hc, NoExpand: g.noExpand}
 	switch {
 	case g.session && !forSession:
 		s, err := g.loadSession()
