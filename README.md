@@ -315,6 +315,45 @@ redfish ... events listen --filter "RegistryPrefix eq 'Contoso'" -o json     # C
   The emulator tree has the old EventService 1.0 (no SSE, no SubmitTestEvent). The mock does not push to destinations.
 - **Not implemented**: push receivers, non-Redfish protocols, and the other subscription properties (see PARITY.md).
 
+## Certificates (v0.11.0)
+
+Beyond the Ansible modules, which do not manage certificates: the CertificateService and the certificate
+collections it manages. There is no Ansible oracle; the reference is the specification (DSP0266 1.23.0 9.9.13, 13.1.3
+and 13.2; the DSP8010 schemas CertificateService 1.2.2, Certificate 1.11.0, CertificateLocations 1.0.4 and
+CertificateCollection). Each capability is a row of the section "Beyond the Ansible modules" of
+[PARITY.md](PARITY.md).
+
+- **Library** (`certs.go`): `CertificateService`, `CertificateLocations`, `Certificate`, `Certificates` (the
+  PEM string is decoded with `crypto/x509`: subject, issuer, validity, key, usages, SANs, fingerprint: `ParseX509`),
+  `GenerateCSR` (the answer is decoded as PKCS#10: `ParseCSR`, `ParseCSRResponse`), `InstallCertificate` (POST to a
+  collection), `ReplaceCertificate`, `DeleteCertificate`, `RekeyCertificate` and `RenewCertificate`. The actions are
+  checked against the ActionInfo or the AllowableValues of the service and the formats of the collection against
+  `@Redfish.SupportedCertificates`. A service without the feature gives `ErrUnsupported`.
+- **CLI**: `redfish certs status|list|show|csr|replace|install|delete|rekey|renew`.
+
+```sh
+redfish ... certs list
+redfish ... certs show /redfish/v1/Managers/BMC/NetworkProtocol/HTTPS/Certificates/1      # + the parsed x509 fields
+redfish ... certs csr --collection /redfish/v1/Managers/BMC/NetworkProtocol/HTTPS/Certificates \
+        --common-name bmc1.example.org --alt-name bmc1 --country FR --out bmc1.csr
+redfish ... certs replace /redfish/v1/Managers/BMC/NetworkProtocol/HTTPS/Certificates/1 --cert-file bmc1.pem
+redfish ... certs replace ID --cert-file other.pem --key-file other.key       # a certificate the service has no key for
+```
+
+- **Safety**: a private key the schema lets the client send (as part of the certificate string, for a certificate that
+  was not made from a CSR of the service) comes only from a 0600 file (`--key-file`) or the standard input
+  (`--key-stdin`), is a `Secret`, is checked against the certificate before anything is sent (one block, not
+  encrypted, the certificate's public key), is never printed and is redacted from errors; a CSR or certificate answer
+  that carries a key is refused or stripped. Strings are bounded (certificate 64 KiB, key 16 KiB, a chain of 16, 256
+  certificates). The decoders and the key reader are fuzzed (`FuzzParseX509`, `FuzzParseCSRResponse`,
+  `FuzzParseCertificateLocations`, `FuzzParseCertificateResource`, `FuzzReadKey`).
+- **Mock**: a real self-signed certificate in the HTTPS collection, `CertificateLocations` kept up to date, POST to a
+  certificate collection (decoded with `crypto/x509`, key checked, 400 when the service holds no key), DELETE,
+  `GenerateCSR`, `Rekey` and `Renew` that return real PKCS#10 requests and keep the key, and `ReplaceCertificate`
+  that gives the new certificate its own path. The emulator tree has no CertificateService.
+- **Not implemented**: decoding PKCS7 and PKCS12, automatic enrollment, ForceAutomaticRenew, SPDM and UEFI
+  properties, encrypted keys (see PARITY.md).
+
 ## What it follows
 
 Each rule comes from a document opened on 2026-11-05 (see the package documentation for the details):
@@ -353,7 +392,7 @@ Chassis v1.29.0 but still the one most BMCs serve).
 
 ## Status
 
-v0.10.0: the EventService, subscriptions and the SSE stream (beyond the Ansible parity); v0.9.0: the Storage commands (parity 99/99); v0.8.0: the UpdateService commands; v0.7.0: the Accounts and Sessions commands; v0.6.0: the Managers commands, virtual media and logs; v0.5.0: the Chassis commands; v0.4.0: the Systems commands (library, CLI, second mock tree); v0.3.0: the generic client, the mock BMC and the CLI; v0.2.0 and before: the energy reader. Section
+v0.11.0: the CertificateService and its certificates (beyond the Ansible parity); v0.10.0: the EventService, subscriptions and the SSE stream (beyond the Ansible parity); v0.9.0: the Storage commands (parity 99/99); v0.8.0: the UpdateService commands; v0.7.0: the Accounts and Sessions commands; v0.6.0: the Managers commands, virtual media and logs; v0.5.0: the Chassis commands; v0.4.0: the Systems commands (library, CLI, second mock tree); v0.3.0: the generic client, the mock BMC and the CLI; v0.2.0 and before: the energy reader. Section
 numbers cited in the code are DSP0266 1.23.0's.
 
 **Performance.** `BenchmarkGet` (one resource of the mock over TLS keep-alive, client and mock in one process,
