@@ -97,6 +97,7 @@ test double, and says so). It stops on interrupt.`,
 	serve.Flags().StringVar(&listen, "listen", "127.0.0.1:0", "address to listen on (port 0: a free loopback port)")
 	serve.Flags().StringVar(&caOut, "ca-out", "", "where to write the certificate (default: under the user config directory)")
 	serve.Flags().StringVar(&pwFile, "mock-password-file", "", "file holding admin's password (mode 0600)")
+	serve.Flags().BoolVar(&o.NoQueries, "no-queries", false, "do not advertise or implement the query parameters of DSP0266 7.3 ("+mockbmc.TreeEmulator+" never does)")
 	serve.Flags().StringVar(&o.Tree, "tree", mockbmc.TreeRackmount, "mockup to serve: "+mockbmc.TreeRackmount+" or "+mockbmc.TreeEmulator)
 	serve.Flags().IntVar(&o.TaskPolls, "task-polls", 2, "how many times a task monitor answers 202 before the task completes")
 	cmd.AddCommand(serve)

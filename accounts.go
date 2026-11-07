@@ -262,17 +262,13 @@ func (c *Client) ListUsers(ctx context.Context) ([]Props, error) {
 	if err != nil {
 		return nil, err
 	}
-	uris, err := c.members(ctx, accounts)
+	members, err := c.memberResources(ctx, accounts, MaxMembers, 8, nil)
 	if err != nil {
 		return nil, err
 	}
 	out := []Props{}
-	for _, u := range uris {
-		d, _, err := c.getProps(ctx, u)
-		if err != nil {
-			return nil, err
-		}
-		user := pick(d, userProperties...)
+	for _, m := range members {
+		user := pick(m.Props, userProperties...)
 		if un, ok := user["UserName"]; !ok || un == "" {
 			if en, _ := user["Enabled"].(bool); !en {
 				continue
@@ -324,17 +320,13 @@ func (c *Client) Roles(ctx context.Context) ([]Props, error) {
 	if l == "" {
 		return nil, fmt.Errorf("%w: the AccountService links no Roles collection", ErrNotFound)
 	}
-	uris, err := c.members(ctx, l)
+	members, err := c.memberResources(ctx, l, MaxMembers, 8, nil)
 	if err != nil {
 		return nil, err
 	}
 	out := []Props{}
-	for _, u := range uris {
-		d, _, err := c.getProps(ctx, u)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, pick(d, roleProperties...))
+	for _, m := range members {
+		out = append(out, pick(m.Props, roleProperties...))
 	}
 	return out, nil
 }
@@ -629,17 +621,13 @@ var sessionProperties = []string{"Description", "Id", "Name", "UserName"}
 // the service root's Links.Sessions, else the default path (the oracle fails when
 // the root has no Links.Sessions).
 func (c *Client) GetSessions(ctx context.Context) ([]Props, error) {
-	uris, err := c.members(ctx, c.sessionsPath(ctx))
+	members, err := c.memberResources(ctx, c.sessionsPath(ctx), MaxMembers, 8, nil)
 	if err != nil {
 		return nil, err
 	}
 	out := []Props{}
-	for _, u := range uris {
-		d, _, err := c.getProps(ctx, u)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, pick(d, sessionProperties...))
+	for _, m := range members {
+		out = append(out, pick(m.Props, sessionProperties...))
 	}
 	return out, nil
 }

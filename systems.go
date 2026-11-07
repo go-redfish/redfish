@@ -149,6 +149,7 @@ func (c *Client) rootLink(ctx context.Context, name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	c.noteFeatures(root) // the root is read anyway: its ProtocolFeaturesSupported costs no request
 	if l := linkOf(root, name); l != "" {
 		return l, nil
 	}
@@ -938,23 +939,20 @@ func (c *Client) memberProps(ctx context.Context, resURI, key string, props []st
 	if coll == "" {
 		return nil, fmt.Errorf("%w: Key %s not found", ErrUnsupported, key)
 	}
-	uris, err := c.members(ctx, coll)
+	var tolerate func(error) bool
+	if skipErrors {
+		tolerate = notAuth
+	}
+	members, err := c.memberResources(ctx, coll, MaxMembers, 8, tolerate)
 	if err != nil {
 		return nil, err
 	}
 	out := []Props{}
-	for _, u := range uris {
-		m, _, err := c.getProps(ctx, u)
-		if err != nil {
-			if skipErrors && !errors.Is(err, ErrAuth) {
-				continue
-			}
-			return nil, err
-		}
-		if keep != nil && !keep(m) {
+	for _, m := range members {
+		if keep != nil && !keep(m.Props) {
 			continue
 		}
-		out = append(out, pick(m, props...))
+		out = append(out, pick(m.Props, props...))
 	}
 	return out, nil
 }

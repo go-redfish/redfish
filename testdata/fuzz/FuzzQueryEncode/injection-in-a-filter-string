@@ -1,0 +1,8 @@
+go test fuzz v1
+string("Name eq 'a&$expand=*#b+c;d%e'")
+string("Name&$expand=*")
+int(1)
+int(70)
+int(-1)
+int(1099511627776)
+int(131071)

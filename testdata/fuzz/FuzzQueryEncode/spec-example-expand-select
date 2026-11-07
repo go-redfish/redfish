@@ -1,0 +1,8 @@
+go test fuzz v1
+string("(Status/State eq 'Enabled' and Status/Health eq 'OK') or SystemType eq 'Physical'")
+string("Members/UUID,Status/State")
+int(2)
+int(3)
+int(30)
+int(5)
+int(126463)

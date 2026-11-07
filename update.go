@@ -156,21 +156,13 @@ func (c *Client) softwareInventory(ctx context.Context, key string) ([]Props, er
 	if coll == "" {
 		return nil, fmt.Errorf("%w: No %s resource found", ErrNotFound, key)
 	}
-	uris, err := c.membersMax(ctx, coll, maxInventory, 32)
+	members, err := c.memberResources(ctx, coll, maxInventory, 32, nil)
 	if err != nil {
 		return nil, err
 	}
 	out := []Props{}
-	for _, u := range uris {
-		r, err := c.Get(ctx, u)
-		if err != nil {
-			return nil, err
-		}
-		item, err := Pick(r.Body, softwareProperties...)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, item)
+	for _, m := range members {
+		out = append(out, pick(m.Props, softwareProperties...))
 	}
 	return out, nil
 }

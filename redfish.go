@@ -113,6 +113,12 @@ type Config struct {
 	Timeout time.Duration
 	// HTTP overrides the transport (tests); its redirects are still refused.
 	HTTP *http.Client
+	// NoExpand forces the inventory and listing functions that read the members
+	// of a collection (CPUInventory, SoftwareInventory, ListUsers...) to read them
+	// one by one. By default they send $expand=. (DSP0266 7.3.2) when the service
+	// root advertises it in ProtocolFeaturesSupported, and fall back to the
+	// per-member reads when it does not or when the expanded answer fails.
+	NoExpand bool
 }
 
 // Client reads one BMC. It is safe for concurrent use.
@@ -126,6 +132,7 @@ type Client struct {
 	location string // session resource, for logout
 	metrics  []string
 	power    []string
+	features *ProtocolFeatures // the service root's ProtocolFeaturesSupported, once read
 }
 
 // ValidateURL applies the rules every BMC URL must meet: https, a host, no
@@ -271,11 +278,12 @@ func (c *Client) requestReader(ctx context.Context, method, path string, rd io.R
 		return nil, nil, scrub(err, pw, user)
 	}
 	defer resp.Body.Close()
-	data, err := io.ReadAll(io.LimitReader(resp.Body, MaxBody+1))
+	limit := bodyLimit(ctx) // MaxBody, or MaxExpandedBody for a request with $expand
+	data, err := io.ReadAll(io.LimitReader(resp.Body, int64(limit)+1))
 	if err != nil {
 		return nil, nil, scrub(err, pw, user)
 	}
-	if len(data) > MaxBody {
+	if len(data) > limit {
 		return nil, nil, ErrTooLarge
 	}
 	switch {

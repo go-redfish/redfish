@@ -21,6 +21,9 @@
 //   - the Accounts collection follows the AccountService rules (accounts.go:
 //     unique names, roles, MinPasswordLength, disabled and PasswordChangeRequired
 //     accounts, an Allow header, services with a fixed number of accounts);
+//   - the query parameters of 7.3 ($expand, $select, $filter, $top, $skip, only,
+//     excerpt) on TreeRackmount, advertised in ProtocolFeaturesSupported; the
+//     other tree advertises nothing (query.go);
 //   - an error is the Redfish error object with @Message.ExtendedInfo (8.6,
 //     9.5.11).
 //
@@ -100,6 +103,9 @@ type Options struct {
 	SSEDropAfter int
 	// EventsDisabled makes the EventService answer ServiceEnabled false.
 	EventsDisabled bool
+	// NoQueries makes TreeRackmount a service that does not advertise the query
+	// parameters of DSP0266 7.3 (query.go); TreeEmulator never does.
+	NoQueries bool
 }
 
 // BMC is the mock service. Handler serves it; it is safe for concurrent use.
@@ -116,6 +122,7 @@ type BMC struct {
 	tree      string
 	// Log records "METHOD path status" of every request, for tests.
 	log     []string
+	qlog    []string // the raw query of each request, aligned with log
 	uploads []Upload
 	simple  []map[string]any
 	resets  []string
@@ -182,6 +189,11 @@ func New(o Options) (*BMC, error) {
 	b.tree = mockupRoot
 	b.augment(o.Tree)
 	b.augmentAccounts()
+	if b.queriesOn() {
+		b.res[root]["ProtocolFeaturesSupported"] = features()
+	} else {
+		delete(b.res[root], "ProtocolFeaturesSupported") // the DMTF mockup claims some: what is not implemented is not advertised
+	}
 	// A tree without a Sessions collection gets one, so that a session can be
 	// opened (DSP0266 13.3.4.2).
 	sp := root + "/SessionService/Sessions"
@@ -244,6 +256,7 @@ func (b *BMC) Handler() http.Handler {
 		b.serve(sw, r)
 		b.mu.Lock()
 		b.log = append(b.log, r.Method+" "+r.URL.Path+" "+strconv.Itoa(sw.code))
+		b.qlog = append(b.qlog, r.URL.RawQuery)
 		b.mu.Unlock()
 	})
 }
@@ -363,8 +376,6 @@ func (b *BMC) get(w http.ResponseWriter, r *http.Request, p string) {
 		b.fail(w, http.StatusNotFound, "", "The requested resource of type "+path.Base(p)+" was not found.", "Base.1.19.ResourceNotFound")
 		return
 	}
-	// $select and $expand are not implemented: the service root would say so
-	// in ProtocolFeaturesSupported, which this mockup's does not claim.
 	tag := etagOf(m)
 	if inm := r.Header.Get("If-None-Match"); inm != "" && inm == tag {
 		w.WriteHeader(http.StatusNotModified)
@@ -372,6 +383,17 @@ func (b *BMC) get(w http.ResponseWriter, r *http.Request, p string) {
 	}
 	if !b.opts.OmitAllow {
 		w.Header().Set("Allow", b.allowed(p))
+	}
+	if r.URL.RawQuery != "" { // DSP0266 7.3 (query.go)
+		if r.Method == http.MethodHead { // 7.4: HEAD with a query parameter is a 400
+			b.fail(w, http.StatusBadRequest, "", "HEAD does not take query parameters.", "Base.1.19.QueryNotSupportedOnOperation")
+			return
+		}
+		out, ok := b.applyQuery(w, r, m)
+		if !ok {
+			return
+		}
+		m = out
 	}
 	writeJSON(w, http.StatusOK, m, tag)
 }

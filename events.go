@@ -200,20 +200,19 @@ func (c *Client) Subscriptions(ctx context.Context) ([]Subscription, error) {
 	if err != nil {
 		return nil, err
 	}
-	uris, err := c.membersMax(ctx, es.SubscriptionsURI, MaxSubscriptions, 8)
+	members, err := c.memberResources(ctx, es.SubscriptionsURI, MaxSubscriptions, 8, func(err error) bool {
+		return errors.Is(err, ErrNotFound) // closed since the listing
+	})
 	if err != nil {
 		return nil, err
 	}
 	var out []Subscription
-	for _, u := range uris {
-		s, err := c.Subscription(ctx, u)
-		if errors.Is(err, ErrNotFound) { // closed since the listing
-			continue
-		}
+	for _, m := range members {
+		uri, err := resolveSubscription(es.SubscriptionsURI, m.URI)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, s)
+		out = append(out, parseSubscription(uri, m.Props))
 	}
 	return out, nil
 }

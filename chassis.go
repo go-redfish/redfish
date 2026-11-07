@@ -27,6 +27,24 @@ func (c *Client) chassisSet(ctx context.Context, uris []string) ([]string, error
 // ChassisInventory lists the identity properties of the chassis
 // (get_chassis_inventory).
 func (c *Client) ChassisInventory(ctx context.Context, uris ...string) ([]Props, error) {
+	if len(uris) == 0 { // every chassis: the collection's members, expanded when the service allows
+		root, err := c.Root(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if root.Chassis == "" {
+			return nil, fmt.Errorf("%w: the service root links no Chassis collection", ErrNotFound)
+		}
+		members, err := c.memberResources(ctx, root.Chassis, MaxMembers, 8, nil)
+		if err != nil {
+			return nil, err
+		}
+		out := []Props{}
+		for _, m := range members {
+			out = append(out, pick(m.Props, chassisInventoryProperties...))
+		}
+		return out, nil
+	}
 	set, err := c.chassisSet(ctx, uris)
 	if err != nil {
 		return nil, err
@@ -37,10 +55,12 @@ func (c *Client) ChassisInventory(ctx context.Context, uris ...string) ([]Props,
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, pick(p, "Name", "Id", "ChassisType", "PartNumber", "AssetTag", "Manufacturer", "IndicatorLED", "SerialNumber", "Model"))
+		out = append(out, pick(p, chassisInventoryProperties...))
 	}
 	return out, nil
 }
+
+var chassisInventoryProperties = []string{"Name", "Id", "ChassisType", "PartNumber", "AssetTag", "Manufacturer", "IndicatorLED", "SerialNumber", "Model"}
 
 // legacy reads the resource a chassis links under key ("Thermal", "Power"):
 // nil when the chassis has no such link.
