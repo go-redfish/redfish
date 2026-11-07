@@ -188,6 +188,8 @@ func New(o Options) (*BMC, error) {
 	b.augmentAccounts()
 	if b.queriesOn() {
 		b.res[root]["ProtocolFeaturesSupported"] = features()
+	} else {
+		delete(b.res[root], "ProtocolFeaturesSupported") // the DMTF mockup claims some: what is not implemented is not advertised
 	}
 	// A tree without a Sessions collection gets one, so that a session can be
 	// opened (DSP0266 13.3.4.2).

@@ -333,7 +333,7 @@ func (b *BMC) filterMembers(list []any, expr string) ([]any, error) {
 	if p.pos != len(toks) {
 		return nil, fmt.Errorf("unexpected %q", toks[p.pos].text)
 	}
-	var out []any
+	out := []any{} // an empty collection is an empty array, never null (DSP0266 9.6.11)
 	for _, m := range list {
 		res := b.res[idOf(m)]
 		if res == nil {

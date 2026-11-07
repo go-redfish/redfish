@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"ProtocolFeaturesSupported\":{\"ExpandQuery\":{\"MaxLevels\":99999999999999999999,\"NoLinks\":\"true\",\"Levels\":1},\"FilterQuery\":false,\"FilterQueryComparisonOperations\":true,\"SelectQuery\":[true]}}")
