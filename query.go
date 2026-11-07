@@ -74,7 +74,7 @@ type ProtocolFeatures struct {
 	// ExpandQuery: ExpandAll is the asterisk, ExpandLinks the tilde, ExpandNoLinks
 	// the period, ExpandLevels $levels (to MaxLevels, 0 when the root gives none).
 	ExpandAll, ExpandLevels, ExpandLinks, ExpandNoLinks bool
-	MaxLevels                                          int
+	MaxLevels                                           int
 	// ExcerptQuery, FilterQuery, OnlyMemberQuery, SelectQuery and TopSkipQuery
 	// (both $top and $skip) are the booleans of the same names.
 	Excerpt, Filter, Only, Select, TopSkip bool
@@ -398,7 +398,7 @@ type filterToken struct {
 }
 
 // lexFilter splits a $filter expression into words (property paths and
-// operators), single-quoted strings ('' stands for one quote), numbers and
+// operators), single-quoted strings (” stands for one quote), numbers and
 // parentheses (DSP0266 7.3.4).
 func lexFilter(s string) ([]filterToken, error) {
 	var out []filterToken
