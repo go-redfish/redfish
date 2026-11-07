@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"Links\":{\"Certificates\":[{\"@odata.id\":\"/redfish/v1/Managers/BMC/NetworkProtocol/HTTPS/Certificates/1\"},{\"@odata.id\":\"/redfish/v1/UpdateService/ClientCertificates/1\"},{\"@odata.id\":\"/redfish/v1/UpdateService/ClientCertificates/1\"},{\"@odata.id\":\"//evil/x\"},{\"@odata.id\":[]},7,null],\"Certificates@odata.count\":99}}")

@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"CSRString\":\"-----BEGIN CERTIFICATE REQUEST-----\\n-----END CERTIFICATE REQUEST-----\\nPRIVATE KEY\" }")

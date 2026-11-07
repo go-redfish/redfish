@@ -621,8 +621,18 @@ func FuzzParseCSRResponse(f *testing.F) {
 		if err != nil {
 			return
 		}
-		if len(csr.PEM) > redfish.MaxCSRString || strings.Contains(csr.PEM, "PRIVATE KEY") {
-			t.Fatalf("accepted a CSR of %d bytes with a key: %v", len(csr.PEM), strings.Contains(csr.PEM, "PRIVATE KEY"))
+		if len(csr.PEM) > redfish.MaxCSRString {
+			t.Fatalf("accepted a CSR of %d bytes", len(csr.PEM))
+		}
+		// No private key block is accepted (the words alone, outside a block, are only text).
+		for rest := []byte(csr.PEM); ; {
+			var b *pem.Block
+			if b, rest = pem.Decode(rest); b == nil {
+				break
+			}
+			if strings.HasSuffix(b.Type, "PRIVATE KEY") {
+				t.Fatalf("accepted a CSR with a %s block", b.Type)
+			}
 		}
 	})
 }

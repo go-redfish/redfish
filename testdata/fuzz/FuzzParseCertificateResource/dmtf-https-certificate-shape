@@ -1,0 +1,3 @@
+go test fuzz v1
+string("/redfish/v1/Managers/BMC/NetworkProtocol/HTTPS/Certificates/1")
+[]byte("{\"@odata.type\":\"#Certificate.v1_8_1.Certificate\",\"Id\":\"1\",\"CertificateType\":\"PEM\",\"CertificateString\":\"-----BEGIN CERTIFICATE-----\\nAAAA\\n-----END CERTIFICATE-----\\n-----BEGIN PRIVATE KEY-----\\nAAAAAAAAAAAAAAAAAAAAAAAA\\n-----END PRIVATE KEY-----\",\"Issuer\":{\"CommonName\":5,\"AlternativeNames\":[null,\"a\"]},\"Subject\":[],\"KeyUsage\":[\"KeyEncipherment\",null],\"Actions\":{\"#Certificate.Rekey\":{\"target\":\"/x\"},\"#Certificate.Renew\":5}}")

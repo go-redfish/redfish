@@ -132,7 +132,7 @@ func ParseCertificateLocations(data []byte) ([]string, error) {
 	for _, x := range l {
 		m, _ := x.(map[string]any)
 		id, _ := m["@odata.id"].(string)
-		if u := servicePath(id); u != "" && len(out) < MaxCertificates && !slices.Contains(out, u) {
+		if u := servicePath(id); strings.HasPrefix(u, "/redfish/") && len(out) < MaxCertificates && !slices.Contains(out, u) {
 			out = append(out, u)
 		}
 	}
