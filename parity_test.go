@@ -14,6 +14,64 @@ import (
 // a todo row fails this test.
 const allowTodo = false
 
+// checkBeyondRows checks the section "Beyond the Ansible modules": each row (a
+// line that starts with "| DSP0266") has 6 cells (capability, spec section,
+// go-redfish, CLI, test, status) and its tests exist.
+func checkBeyondRows(t *testing.T) {
+	t.Helper()
+	doc, err := os.ReadFile("PARITY.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := testNames(t)
+	rows := 0
+	for _, line := range strings.Split(string(doc), "\n") {
+		if !strings.HasPrefix(line, "| DSP0266") && !strings.HasPrefix(line, "| WHATWG") && !strings.HasPrefix(line, "| EventService") {
+			continue
+		}
+		cells := strings.Split(strings.Trim(line, "| "), " | ")
+		if len(cells) != 6 {
+			t.Errorf("a row without 6 cells: %q", line)
+			continue
+		}
+		rows++
+		names := regexp.MustCompile("`(Test\\w+|Fuzz\\w+)`").FindAllStringSubmatch(cells[4], -1)
+		if len(names) == 0 || cells[1] == "" || cells[2] == "" || cells[3] == "" || strings.TrimSpace(cells[5]) != "done" {
+			t.Errorf("a row without section, function, command, test or done: %q", line)
+		}
+		for _, n := range names {
+			if !tests[n[1]] {
+				t.Errorf("row %q names the test %s, which does not exist", cells[0], n[1])
+			}
+		}
+	}
+	if rows < 8 {
+		t.Errorf("%d rows in \"Beyond the Ansible modules\", want at least 8", rows)
+	}
+}
+
+func testNames(t *testing.T) map[string]bool {
+	t.Helper()
+	tests := map[string]bool{}
+	err := filepath.WalkDir(".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(p, "_test.go") {
+			return err
+		}
+		b, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		for _, m := range regexp.MustCompile(`func ((?:Test|Fuzz)\w+)\(`).FindAllStringSubmatch(string(b), -1) {
+			tests[m[1]] = true
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return tests
+}
+
 func TestParityTableIsHonest(t *testing.T) {
 	doc, err := os.ReadFile("PARITY.md")
 	if err != nil {

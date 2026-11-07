@@ -282,6 +282,39 @@ redfish ... storage volume delete --storage RAID1 --dry-run Vol1 ; redfish ... s
   KeyError; a system with both Storage and SimpleStorage is read through Storage only, which is what the oracle's code
   does in effect (it tests the SimpleStorage link on a variable the Storage branch has overwritten).
 
+## Events (v0.10.0)
+
+Beyond the Ansible modules, which have no eventing: the EventService, its subscriptions, the test event and the
+Server-Sent Events stream. There is no Ansible oracle; the reference is the specification (DSP0266 1.23.0 12.1,
+12.5 and 13.7; the DSP8010 schemas EventService 1.12.0, EventDestination 1.17.1 and Event 1.14.0; WHATWG HTML 9.2 for the
+stream format). Each capability is a row of the section "Beyond the Ansible modules" of [PARITY.md](PARITY.md).
+
+- **Library** (`events.go`, `events_stream.go`, `sse.go`): `EventService`, `Subscriptions`, `Subscription`,
+  `Subscribe`, `Unsubscribe`, `SubmitTestEvent`, `CheckDestination`; `Events(ctx, filter)` and `EventsWith` return an
+  `EventStream` (a channel `C` of `Event`, and `Err()` once it is closed); `SSEReader` and `ParseEvent` are the pure
+  parser and decoder. A service without the feature gives `ErrUnsupported`.
+- **CLI**: `redfish events status|subscriptions|subscribe|unsubscribe|test|listen`.
+
+```sh
+redfish ... events status
+redfish ... events subscribe --destination https://receiver.example/events --registry-prefix Base --headers-file ~/.receiver-headers
+redfish ... events test --message-id Contoso.1.0.TempAssert --message "hot"
+redfish ... events listen --filter "RegistryPrefix eq 'Contoso'" -o json     # Ctrl-C ends it
+```
+
+- **Safety**: a subscription Destination must be https, without credentials, query or fragment. The HTTP headers the
+  service sends to the receiver (an Authorization) are credentials: they come from a 0600 file or the standard input,
+  never a flag, and are redacted from errors. The stream is authenticated like any request, over https; a line or an
+  event above 1 MiB (or `--max-line`, `--max-event-bytes`) ends it with `ErrEventTooLarge`, nothing grows. It reconnects
+  with `Last-Event-ID` only after a broken connection and a bounded number of times, never after a clean end by the
+  service (which closes the connection when its subscription is deleted). The parser, the event decoder, the
+  destination check and the headers file are fuzzed (`FuzzSSEReader`, `FuzzParseEvent`, `FuzzCheckDestination`,
+  `FuzzReadHeaders`).
+- **Mock**: the Subscriptions collection (POST 201 with Location, DELETE), `SubmitTestEvent`, and an SSE endpoint
+  (`ServerSentEventUri`) with the `$filter` subset documented in `mockbmc/events.go`, ids, history and `Last-Event-ID`.
+  The emulator tree has the old EventService 1.0 (no SSE, no SubmitTestEvent). The mock does not push to destinations.
+- **Not implemented**: push receivers, non-Redfish protocols, and the other subscription properties (see PARITY.md).
+
 ## What it follows
 
 Each rule comes from a document opened on 2026-11-05 (see the package documentation for the details):
@@ -320,7 +353,7 @@ Chassis v1.29.0 but still the one most BMCs serve).
 
 ## Status
 
-v0.9.0: the Storage commands (parity 99/99); v0.8.0: the UpdateService commands; v0.7.0: the Accounts and Sessions commands; v0.6.0: the Managers commands, virtual media and logs; v0.5.0: the Chassis commands; v0.4.0: the Systems commands (library, CLI, second mock tree); v0.3.0: the generic client, the mock BMC and the CLI; v0.2.0 and before: the energy reader. Section
+v0.10.0: the EventService, subscriptions and the SSE stream (beyond the Ansible parity); v0.9.0: the Storage commands (parity 99/99); v0.8.0: the UpdateService commands; v0.7.0: the Accounts and Sessions commands; v0.6.0: the Managers commands, virtual media and logs; v0.5.0: the Chassis commands; v0.4.0: the Systems commands (library, CLI, second mock tree); v0.3.0: the generic client, the mock BMC and the CLI; v0.2.0 and before: the energy reader. Section
 numbers cited in the code are DSP0266 1.23.0's.
 
 **Performance.** `BenchmarkGet` (one resource of the mock over TLS keep-alive, client and mock in one process,

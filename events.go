@@ -32,39 +32,40 @@ const MaxSubscriptions = MaxMembers
 // "Clients can read the EventService resource of a service in order to
 // determine what control properties ... are supported").
 type EventService struct {
-	URI string
+	URI string `json:"uri"`
 	// ServiceEnabled is nil when the service does not say. When false, events are no
 	// longer published and an SSE connection cannot be opened.
-	ServiceEnabled *bool
-	State, Health  string
+	ServiceEnabled *bool  `json:"service_enabled,omitempty"`
+	State          string `json:"state,omitempty"`
+	Health         string `json:"health,omitempty"`
 	// SubscriptionsURI is the EventDestinationCollection.
-	SubscriptionsURI string
+	SubscriptionsURI string `json:"subscriptions_uri,omitempty"`
 	// ServerSentEventURI is the SSE endpoint (ServerSentEventUri, DSP0266 12.1.3);
 	// empty when the service has none.
-	ServerSentEventURI string
+	ServerSentEventURI string `json:"server_sent_event_uri,omitempty"`
 	// EventFormatTypes are the formats a subscription may ask for (Event,
 	// MetricReport); empty: Event only (the schema's default).
-	EventFormatTypes []string
+	EventFormatTypes []string `json:"event_format_types,omitempty"`
 	// RegistryPrefixes, ResourceTypes and Severities are the values a subscription
 	// may use; empty means the service does not support that kind of filter.
-	RegistryPrefixes []string
-	ResourceTypes    []string
-	Severities       []string
+	RegistryPrefixes []string `json:"registry_prefixes,omitempty"`
+	ResourceTypes    []string `json:"resource_types,omitempty"`
+	Severities       []string `json:"severities,omitempty"`
 	// SSEFilterProperties are the properties of SSEFilterPropertiesSupported: which
 	// $filter criteria the SSE URI accepts (EventFormatType, MessageId,
 	// OriginResource, RegistryPrefix, ResourceType, SubordinateResources...).
-	SSEFilterProperties map[string]bool
+	SSEFilterProperties map[string]bool `json:"sse_filter_properties,omitempty"`
 	// Capability flags; nil when the service does not say.
-	SSEIncludeOriginOfCondition       *bool
-	IncludeOriginOfConditionSupported *bool
-	SubordinateResourcesSupported     *bool
-	OriginResourcesSupported          *bool
-	ExcludeMessageID                  *bool
-	ExcludeRegistryPrefix             *bool
-	DeliveryRetryAttempts             *int64
-	DeliveryRetryIntervalSeconds      *int64
+	SSEIncludeOriginOfCondition       *bool  `json:"sse_include_origin_of_condition,omitempty"`
+	IncludeOriginOfConditionSupported *bool  `json:"include_origin_of_condition_supported,omitempty"`
+	SubordinateResourcesSupported     *bool  `json:"subordinate_resources_supported,omitempty"`
+	OriginResourcesSupported          *bool  `json:"origin_resources_supported,omitempty"`
+	ExcludeMessageID                  *bool  `json:"exclude_message_id,omitempty"`
+	ExcludeRegistryPrefix             *bool  `json:"exclude_registry_prefix,omitempty"`
+	DeliveryRetryAttempts             *int64 `json:"delivery_retry_attempts,omitempty"`
+	DeliveryRetryIntervalSeconds      *int64 `json:"delivery_retry_interval_seconds,omitempty"`
 	// SubmitTestEvent is true when the service has the action.
-	SubmitTestEvent bool
+	SubmitTestEvent bool `json:"submit_test_event"`
 }
 
 func boolOf(p Props, key string) *bool {
@@ -137,21 +138,23 @@ func parseEventService(uri string, p Props) EventService {
 // HttpHeaders of a subscription are never read back: the schema has the service
 // answer null or an empty array, as they hold credentials.
 type Subscription struct {
-	URI, ID                 string
-	Destination             string
-	Protocol                string
-	SubscriptionType        string
-	EventFormatType         string
-	Context                 string
-	State, Health           string
-	RegistryPrefixes        []string
-	ResourceTypes           []string
-	MessageIDs              []string
-	ExcludeMessageIDs       []string
-	ExcludeRegistryPrefixes []string
-	Severities              []string
-	OriginResources         []string
-	SubordinateResources    *bool
+	URI                     string   `json:"uri"`
+	ID                      string   `json:"id"`
+	Destination             string   `json:"destination"`
+	Protocol                string   `json:"protocol,omitempty"`
+	SubscriptionType        string   `json:"subscription_type,omitempty"`
+	EventFormatType         string   `json:"event_format_type,omitempty"`
+	Context                 string   `json:"context"`
+	State                   string   `json:"state,omitempty"`
+	Health                  string   `json:"health,omitempty"`
+	RegistryPrefixes        []string `json:"registry_prefixes,omitempty"`
+	ResourceTypes           []string `json:"resource_types,omitempty"`
+	MessageIDs              []string `json:"message_ids,omitempty"`
+	ExcludeMessageIDs       []string `json:"exclude_message_ids,omitempty"`
+	ExcludeRegistryPrefixes []string `json:"exclude_registry_prefixes,omitempty"`
+	Severities              []string `json:"severities,omitempty"`
+	OriginResources         []string `json:"origin_resources,omitempty"`
+	SubordinateResources    *bool    `json:"subordinate_resources,omitempty"`
 }
 
 func parseSubscription(uri string, p Props) Subscription {
@@ -317,6 +320,10 @@ type SubscribeOptions struct {
 	HTTPHeaders map[string]Secret
 }
 
+// isServicePath: a path of the service as given, not an absolute URL (servicePath
+// would keep the path of one).
+func isServicePath(p string) bool { return strings.HasPrefix(p, "/redfish/") && servicePath(p) == p }
+
 var headerName = regexp.MustCompile("^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,128}$")
 
 // maxHeaders bounds HTTPHeaders.
@@ -417,10 +424,10 @@ func subscriptionBody(o SubscribeOptions, es EventService) (Props, error) {
 	if len(o.OriginResources) > 0 {
 		var l []any
 		for _, r := range o.OriginResources {
-			if servicePath(r) == "" {
+			if !isServicePath(r) {
 				return nil, fmt.Errorf("redfish: origin resource %q is not a path of the service (/redfish/...)", clip(r))
 			}
-			l = append(l, map[string]any{"@odata.id": servicePath(r)})
+			l = append(l, map[string]any{"@odata.id": r})
 		}
 		body["OriginResources"] = l
 	}
@@ -539,7 +546,7 @@ func (c *Client) SubmitTestEvent(ctx context.Context, t TestEvent) (Outcome, err
 	if !messageIDPattern.MatchString(t.MessageID) {
 		return Outcome{}, fmt.Errorf("redfish: MessageId %q is not of the form Registry.Major.Minor.Key", clip(t.MessageID))
 	}
-	if t.OriginOfCondition != "" && servicePath(t.OriginOfCondition) == "" {
+	if t.OriginOfCondition != "" && !isServicePath(t.OriginOfCondition) {
 		return Outcome{}, fmt.Errorf("redfish: OriginOfCondition %q is not a path of the service (/redfish/...)", clip(t.OriginOfCondition))
 	}
 	for _, v := range append([]string{t.Message, t.MessageSeverity, t.Severity, t.EventID, t.EventTimestamp, t.EventType}, t.MessageArgs...) {
@@ -601,39 +608,40 @@ const MaxEventRecords = 256
 // EventRecord is one entry of the Events array of an Event (Event 1.14.0
 // EventRecord).
 type EventRecord struct {
-	MemberID          string
-	EventType         string
-	EventID           string
-	EventGroupID      *int64
-	EventTimestamp    string
-	Severity          string
-	MessageSeverity   string
-	Message           string
-	MessageID         string
-	MessageArgs       []string
-	OriginOfCondition string // the @odata.id of the origin, when the service sends one
-	Context           string
+	MemberID        string   `json:"member_id,omitempty"`
+	EventType       string   `json:"event_type,omitempty"`
+	EventID         string   `json:"event_id,omitempty"`
+	EventGroupID    *int64   `json:"event_group_id,omitempty"`
+	EventTimestamp  string   `json:"event_timestamp,omitempty"`
+	Severity        string   `json:"severity,omitempty"`
+	MessageSeverity string   `json:"message_severity,omitempty"`
+	Message         string   `json:"message,omitempty"`
+	MessageID       string   `json:"message_id,omitempty"`
+	MessageArgs     []string `json:"message_args,omitempty"`
+	// OriginOfCondition is the @odata.id of the origin, when the service sends one.
+	OriginOfCondition string `json:"origin_of_condition,omitempty"`
+	Context           string `json:"context,omitempty"`
 }
 
 // Event is the payload of an event: the Event resource of the schema, or a
 // MetricReport (DSP0266 12.5.2.2) whose records are not decoded.
 type Event struct {
 	// ID is the SSE id field of the event (DSP0266 12.5.2: unique in the stream).
-	ID string
+	ID string `json:"id"`
 	// ODataType is the @odata.type of the payload (#Event.v1_6_0.Event).
-	ODataType string
+	ODataType string `json:"odata_type,omitempty"`
 	// EventID is the Id of the payload.
-	EventID string
-	Name    string
+	EventID string `json:"event_id,omitempty"`
+	Name    string `json:"name,omitempty"`
 	// Context is the context of the subscription: for an SSE stream, a string the
 	// service generated.
-	Context string
-	Records []EventRecord
+	Context string        `json:"context,omitempty"`
+	Records []EventRecord `json:"records,omitempty"`
 	// Data is the payload as the service sent it (JSON).
-	Data []byte
+	Data []byte `json:"-"`
 	// Err is set, with the other fields empty but ID and Data, when the payload
 	// could not be decoded: one bad event does not end the stream.
-	Err error
+	Err error `json:"-"`
 }
 
 // IsMetricReport reports whether the payload is a MetricReport and not an Event.
