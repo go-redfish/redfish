@@ -27,6 +27,7 @@ func mockCmd(g *globals) *cobra.Command {
 	var listen, caOut string
 	var o mockbmc.Options
 	var pwFile string
+	var telemetryEvery time.Duration
 	serve := &cobra.Command{
 		Use:   "serve",
 		Short: "Serve a DMTF mockup (--tree) over HTTPS (a test double: it keeps state in memory)",
@@ -76,6 +77,20 @@ test double, and says so). It stops on interrupt.`,
 				ReadHeaderTimeout: 10 * time.Second}
 			fmt.Fprintf(cmd.OutOrStdout(), "endpoint: https://%s\nca-file: %s\nuser: admin\n", ln.Addr(), caOut)
 			ctx := cmd.Context()
+			if telemetryEvery > 0 { // the passing of time for the TelemetryService
+				go func() {
+					t := time.NewTicker(telemetryEvery)
+					defer t.Stop()
+					for {
+						select {
+						case <-t.C:
+							b.TickTelemetry()
+						case <-ctx.Done():
+							return
+						}
+					}
+				}()
+			}
 			errc := make(chan error, 1)
 			go func() { errc <- srv.ServeTLS(ln, "", "") }()
 			select {
@@ -100,6 +115,7 @@ test double, and says so). It stops on interrupt.`,
 	serve.Flags().BoolVar(&o.NoQueries, "no-queries", false, "do not advertise or implement the query parameters of DSP0266 7.3 ("+mockbmc.TreeEmulator+" never does)")
 	serve.Flags().StringVar(&o.Tree, "tree", mockbmc.TreeRackmount, "mockup to serve: "+mockbmc.TreeRackmount+" or "+mockbmc.TreeEmulator)
 	serve.Flags().IntVar(&o.TaskPolls, "task-polls", 2, "how many times a task monitor answers 202 before the task completes")
+	serve.Flags().DurationVar(&telemetryEvery, "telemetry-interval", 0, "generate the reports of the Periodic metric report definitions every interval, from the sensors' Reading, and send them to the event stream (0: never; `redfish telemetry watch` shows them)")
 	cmd.AddCommand(serve)
 	return cmd
 }

@@ -340,6 +340,12 @@ func (g *globals) printEvent(w io.Writer, ev redfish.Event) error {
 		_, err := fmt.Fprintf(w, "%s\t(undecodable event: %s)\n", clean(ev.ID), clean(ev.Err.Error()))
 		return err
 	}
+	if ev.Report != nil { // a metric report: its time series
+		if _, err := fmt.Fprintf(w, "# %s\t%s\n", clean(ev.ID), clean(ev.Report.ID)); err != nil {
+			return err
+		}
+		return printSeries(w, *ev.Report)
+	}
 	if len(ev.Records) == 0 {
 		_, err := fmt.Fprintf(w, "%s\t%s\n", clean(ev.ID), clean(strings.TrimPrefix(ev.ODataType, "#")))
 		return err
