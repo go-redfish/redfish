@@ -1089,6 +1089,38 @@ func toSingular(s string) string {
 	return s
 }
 
+// memberReader returns the function that reads a member of the collection at
+// uri, whose plain read listed list. The health walk reaches a collection by a
+// link and learns that it is one only from the plain read (it follows
+// Processors, Memory, NetworkInterfaces... as well as single resources, and
+// $expand on a single resource would expand its own links), so $expand=. is
+// asked only now, for a collection known to have two or more members to read:
+// one request in place of one per member (expandedView). The members, their
+// order and the Status read are those of the plain walk; a member the view
+// lacks is read on its own.
+func (w *healthWalk) memberReader(ctx context.Context, uri string, list []any) func(p string) (Props, error) {
+	var view map[string]Props
+	if uri != "" && w.c.canExpand(ctx) {
+		n := 0
+		for _, x := range list {
+			m, _ := x.(map[string]any)
+			if id, _ := m["@odata.id"].(string); servicePath(id) != "" {
+				n++
+			}
+		}
+		if n >= 2 {
+			view = w.c.expandedView(ctx, uri)
+		}
+	}
+	return func(p string) (Props, error) {
+		if m, ok := view[p]; ok {
+			return m, nil
+		}
+		d, _, err := w.c.getProps(ctx, p)
+		return d, err
+	}
+}
+
 func (w *healthWalk) add(subsystem string, e Props) {
 	if w.n < maxHealth {
 		w.n++
@@ -1123,13 +1155,14 @@ func (w *healthWalk) subsystem(ctx context.Context, name string, data Props, dep
 		return
 	}
 	list, _ := data["Members"].([]any)
+	read := w.memberReader(ctx, servicePath(str(data, "@odata.id")), list)
 	for _, x := range list {
 		m, _ := x.(map[string]any)
 		u := servicePath(fmt.Sprint(m["@odata.id"]))
 		if u == "" || w.n >= maxHealth {
 			continue
 		}
-		if d, _, err := w.c.getProps(ctx, u); err == nil {
+		if d, err := read(u); err == nil {
 			w.subsystem(ctx, name, d, depth+1)
 		}
 	}
@@ -1149,11 +1182,12 @@ func (w *healthWalk) resource(ctx context.Context, subsystem, uri string, expand
 		}
 	}
 	if list, ok := d["Members"].([]any); ok { // a collection
+		read := w.memberReader(ctx, servicePath(uri), list)
 		for _, x := range list {
 			m, _ := x.(map[string]any)
 			u, _ := m["@odata.id"].(string)
 			if p := servicePath(u); p != "" && w.n < maxHealth {
-				if r, _, err := w.c.getProps(ctx, p); err == nil {
+				if r, err := read(p); err == nil {
 					w.add(subsystem, Props{key: u, "Status": statusOf(r)})
 				}
 			}

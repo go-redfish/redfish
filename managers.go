@@ -494,15 +494,14 @@ func (c *Client) HostInterfaces(ctx context.Context, managerURIs ...string) ([]P
 		if coll == "" {
 			continue
 		}
-		uris, err := c.members(ctx, coll)
+		// The members of both collections come with $expand=. when the service
+		// allows it; ManagerEthernetInterface is one link, read on its own.
+		hms, err := c.memberResources(ctx, coll, MaxMembers, 8, nil)
 		if err != nil {
 			return nil, err
 		}
-		for _, hu := range uris {
-			h, _, err := c.getProps(ctx, hu)
-			if err != nil {
-				return nil, err
-			}
+		for _, hm := range hms {
+			h := hm.Props
 			e := Props{}
 			for _, k := range props {
 				if v, ok := h[k]; ok && v != nil {
@@ -517,17 +516,13 @@ func (c *Client) HostInterfaces(ctx context.Context, managerURIs ...string) ([]P
 				e["ManagerEthernetInterface"] = pick(n, nicProperties...)
 			}
 			if hl := linkOf(h, "HostEthernetInterfaces"); hl != "" {
-				nics, err := c.members(ctx, hl)
+				nics, err := c.memberResources(ctx, hl, MaxMembers, 8, nil)
 				if err != nil {
 					return nil, err
 				}
-				for _, nu := range nics {
-					n, _, err := c.getProps(ctx, nu)
-					if err != nil {
-						return nil, err
-					}
+				for _, n := range nics {
 					l, _ := e["HostEthernetInterfaces"].([]Props)
-					e["HostEthernetInterfaces"] = append(l, pick(n, nicProperties...))
+					e["HostEthernetInterfaces"] = append(l, pick(n.Props, nicProperties...))
 				}
 			}
 			if len(out) < MaxMembers {
@@ -622,23 +617,33 @@ func (c *Client) Logs(ctx context.Context, resURI string, max int) ([]LogEntries
 		max = MaxMembers
 	}
 	max = min(max, MaxLogEntries)
-	svcs, err := c.logServices(ctx, resURI)
+	_, lsColl, err := c.linked(ctx, resURI, "LogServices")
 	if err != nil {
 		return nil, err
 	}
+	// The LogService resources come with $expand=. when the service allows it.
+	svcs, err := c.memberResources(ctx, lsColl, MaxMembers, 8, nil)
+	if err != nil {
+		return nil, err
+	}
+	// The entries are paged (Members@odata.nextLink) and a page is read whole by
+	// the GET that lists it, so $expand=. only matters for a service that lists
+	// them as links: a page of such a service costs one request instead of one per
+	// entry. A page can be large (MaxExpandedBody bounds it); $top is not used:
+	// a service that answers a shorter page need not give a nextLink, and the
+	// entries read would then differ from the ones read without it. When the
+	// expanded page fails the plain page is read, as for every converted read.
+	expand := c.canExpand(ctx)
 	out := []LogEntries{}
-	for _, su := range svcs {
-		svc, _, err := c.getProps(ctx, su)
-		if err != nil {
-			return nil, err
-		}
+	for _, sm := range svcs {
+		su, svc := sm.URI, sm.Props
 		eu := linkOf(svc, "Entries")
 		if eu == "" {
 			continue
 		}
 		le := LogEntries{Service: su, Entries: []Props{}}
 		for page, next := 0, eu; next != "" && page < 8 && len(le.Entries) < max; page++ {
-			r, err := c.Get(ctx, next)
+			r, err := c.pageMaybeExpanded(ctx, next, expand)
 			if err != nil {
 				return nil, err
 			}

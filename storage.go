@@ -155,6 +155,35 @@ func (r *reads) get(ctx context.Context, c *Client, p string) (Props, error) {
 	return m, err
 }
 
+// members reads the members of a collection as the resources they are, with
+// $expand=. when the service allows it and member by member otherwise (see
+// memberResources); each counts against maxStorageReads as a read of its own
+// would.
+func (r *reads) members(ctx context.Context, c *Client, coll string) ([]member, error) {
+	ms, err := c.memberResources(ctx, coll, MaxMembers, 8, nil)
+	if err != nil {
+		return nil, err
+	}
+	if r.n += len(ms); r.n > maxStorageReads {
+		return nil, fmt.Errorf("%w: more than %d storage resources", ErrMalformed, maxStorageReads)
+	}
+	return ms, nil
+}
+
+// storageResources reads the Storage subsystems of a system as resources (the
+// inventories need every one; storageMembers only lists them).
+func (c *Client) storageResources(ctx context.Context, rd *reads, systemURI string) ([]member, error) {
+	sys, err := rd.get(ctx, c, systemURI)
+	if err != nil {
+		return nil, err
+	}
+	coll := linkOf(sys, "Storage")
+	if coll == "" {
+		return nil, fmt.Errorf("%w: Storage resource not found", ErrNotFound)
+	}
+	return rd.members(ctx, c, coll)
+}
+
 // storageMembers lists the Storage subsystems of a system.
 func (c *Client) storageMembers(ctx context.Context, rd *reads, systemURI string) ([]string, error) {
 	sys, err := rd.get(ctx, c, systemURI)
@@ -188,7 +217,7 @@ func (c *Client) firstController(ctx context.Context, rd *reads, storage Props) 
 // the system has no Storage or the Storage collection is empty.
 func (c *Client) StorageControllerInventory(ctx context.Context, systemURI string) ([]Props, error) {
 	rd := &reads{}
-	members, err := c.storageMembers(ctx, rd, systemURI)
+	members, err := c.storageResources(ctx, rd, systemURI)
 	if err != nil {
 		return nil, err
 	}
@@ -197,21 +226,14 @@ func (c *Client) StorageControllerInventory(ctx context.Context, systemURI strin
 	}
 	out := []Props{}
 	for _, m := range members {
-		st, err := rd.get(ctx, c, m)
-		if err != nil {
-			return nil, err
-		}
+		st := m.Props
 		if coll := linkOf(st, "Controllers"); coll != "" {
-			uris, err := c.members(ctx, coll)
+			cms, err := rd.members(ctx, c, coll)
 			if err != nil {
 				return nil, err
 			}
-			for _, u := range uris {
-				cp, err := rd.get(ctx, c, u)
-				if err != nil {
-					return nil, err
-				}
-				out = append(out, pick(cp, controllerProperties...))
+			for _, cm := range cms {
+				out = append(out, pick(cm.Props, controllerProperties...))
 			}
 		} else if list, ok := st["StorageControllers"].([]any); ok {
 			for _, x := range list {
@@ -242,22 +264,21 @@ func (c *Client) DiskInventory(ctx context.Context, systemURI string) ([]Props, 
 	}
 	out := []Props{}
 	if storage != "" {
-		members, err := c.members(ctx, storage)
+		// The drives are an array of links in each Storage, not a collection: they
+		// stay one read each ($expand=. on the collection expands its members only).
+		members, err := rd.members(ctx, c, storage)
 		if err != nil {
 			return nil, err
 		}
 		for _, m := range members {
-			st, err := rd.get(ctx, c, m)
-			if err != nil {
-				return nil, err
-			}
+			st := m.Props
 			first, err := c.firstController(ctx, rd, st)
 			if err != nil {
 				return nil, err
 			}
 			id := str(st, "Id")
 			if id == "" {
-				id = lastSegment(m)
+				id = lastSegment(m.URI)
 			}
 			drives := []any{}
 			list, _ := st["Drives"].([]any)
@@ -277,15 +298,12 @@ func (c *Client) DiskInventory(ctx context.Context, systemURI string) ([]Props, 
 		}
 		return out, nil
 	}
-	members, err := c.members(ctx, simple)
+	members, err := rd.members(ctx, c, simple)
 	if err != nil {
 		return nil, err
 	}
 	for _, m := range members {
-		st, err := rd.get(ctx, c, m)
-		if err != nil {
-			return nil, err
-		}
+		st := m.Props
 		name := str(st, "Name")
 		if name == "" {
 			id := "1"
@@ -323,32 +341,25 @@ func (c *Client) VolumeInventory(ctx context.Context, systemURI string) ([]Props
 		}
 		return nil, fmt.Errorf("%w: Storage resource not found", ErrNotFound)
 	}
-	members, err := c.members(ctx, storage)
+	members, err := rd.members(ctx, c, storage)
 	if err != nil {
 		return nil, err
 	}
 	out := []Props{}
 	for i, m := range members {
-		st, err := rd.get(ctx, c, m)
-		if err != nil {
-			return nil, err
-		}
+		st := m.Props
 		first, err := c.firstController(ctx, rd, st)
 		if err != nil {
 			return nil, err
 		}
 		vols := []any{}
 		if coll := linkOf(st, "Volumes"); coll != "" {
-			uris, err := c.members(ctx, coll)
+			vms, err := rd.members(ctx, c, coll)
 			if err != nil {
 				return nil, err
 			}
-			for _, u := range uris {
-				vp, err := rd.get(ctx, c, u)
-				if err != nil {
-					return nil, err
-				}
-				vols = append(vols, volumeOf(vp))
+			for _, vm := range vms {
+				vols = append(vols, volumeOf(vm.Props))
 			}
 		}
 		out = append(out, Props{"Controller": controllerName(st, first, fmt.Sprintf("Controller %d", i)), "Volumes": vols})
