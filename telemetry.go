@@ -593,6 +593,9 @@ func ParseMetricReport(data []byte) (MetricReport, error) {
 	if len(data) > MaxMetricReportBytes {
 		return MetricReport{}, ErrTooLarge
 	}
+	if t := bytes.TrimSpace(data); len(t) == 0 || t[0] != '{' {
+		return MetricReport{}, fmt.Errorf("%w: the metric report is not a JSON object", ErrMalformed)
+	}
 	var d struct {
 		ODataID    string  `json:"@odata.id"`
 		ODataType  string  `json:"@odata.type"`

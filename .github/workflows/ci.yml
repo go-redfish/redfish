@@ -63,6 +63,10 @@ jobs:
           - {target: FuzzParseCertificateResource, pkg: .}
           - {target: FuzzQueryEncode, pkg: .}
           - {target: FuzzParseProtocolFeatures, pkg: .}
+          - {target: FuzzParseMetricReport, pkg: .}
+          - {target: FuzzParseMetricNumber, pkg: .}
+          - {target: FuzzParseRedfishDuration, pkg: .}
+          - {target: FuzzParseTelemetryResources, pkg: .}
           - {target: FuzzReadKey, pkg: ./cmd/redfish}
           - {target: FuzzReadHeaders, pkg: ./cmd/redfish}
           - {target: FuzzReadPassword, pkg: ./cmd/redfish}

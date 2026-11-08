@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"Id\":\"D\",\"MetricReportDefinitionType\":\"Periodic\",\"Schedule\":{\"RecurrenceInterval\":\"PT10S\",\"MaxOccurrences\":\"x\"},\"Metrics\":[{\"MetricId\":5,\"MetricProperties\":[1,null]},null],\"Wildcards\":[{\"Name\":\"X\",\"Values\":[1]}],\"Links\":{\"Triggers\":[{\"@odata.id\":\"/redfish/v1/t\"},5]}}")
