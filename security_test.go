@@ -439,7 +439,8 @@ func FuzzParseSecurityPolicy(f *testing.F) {
 			uris = append(uris, sp.SPDM.TrustedCertificatesURI, sp.SPDM.RevokedCertificatesURI)
 		}
 		for _, u := range uris {
-			if u != "" && !strings.HasPrefix(u, "/redfish/") {
+			// servicePath keeps the paths under the service root, "/redfish" included.
+			if u != "" && u != "/redfish" && !strings.HasPrefix(u, "/redfish/") {
 				t.Fatalf("a link that is not a path of the service: %q", u)
 			}
 		}
