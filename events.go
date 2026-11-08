@@ -636,6 +636,10 @@ type Event struct {
 	// service generated.
 	Context string        `json:"context,omitempty"`
 	Records []EventRecord `json:"records,omitempty"`
+	// Report is the decoded MetricReport when the payload is one (IsMetricReport,
+	// DSP0266 12.5.2.2): the same type the MetricReports collection is read into
+	// (ParseMetricReport), so a stream of metric reports needs no second parser.
+	Report *MetricReport `json:"report,omitempty"`
 	// Data is the payload as the service sent it (JSON).
 	Data []byte `json:"-"`
 	// Err is set, with the other fields empty but ID and Data, when the payload
@@ -682,6 +686,11 @@ func ParseEvent(data []byte) (Event, error) {
 	e := Event{ODataType: d.ODataType, EventID: fmt.Sprint(zeroNil(d.ID)), Name: d.Name, Context: d.Context, Data: data}
 	if d.Events == nil {
 		if e.IsMetricReport() {
+			r, err := ParseMetricReport(data)
+			if err != nil {
+				return Event{}, err
+			}
+			e.Report = &r
 			return e, nil
 		}
 		return Event{}, fmt.Errorf("%w: the event has no Events array", ErrMalformed)
