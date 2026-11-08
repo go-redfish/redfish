@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"SPDM\":{\"Allowed\":{\"Algorithms\":[1],\"Versions\":{}},\"TrustedCertificates\":{\"@odata.id\":\"http://evil/x\"}},\"TLS\":{\"Client\":{\"TrustedCertificates\":{\"@odata.id\":\"/redfish/../x\"}},\"Server\":[]}}")

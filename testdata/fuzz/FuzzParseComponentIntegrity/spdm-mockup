@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"Id\":\"SS-SPDM-0\",\"ComponentIntegrityType\":\"SPDM\",\"ComponentIntegrityEnabled\":true,\"SPDM\":{\"MeasurementSet\":{\"MeasurementSummary\":\"oylHo8JAT1RqtB0Vlx9dCzogavikhSvIZpVEDhI1X1+TKeyZZvwuUb5qF9uWqPVa\",\"Measurements\":[{\"MeasurementIndex\":3,\"PartofSummaryHash\":true,\"Measurement\":\"4wEF1nnub2ozuYTWyjyvFGrYnSn0eidy54uaIYXjp/HKRByaco9UtCZeyNfA3rQ3YsRD/6csLcqGw9Nd9/HPAw==\",\"MeasurementHashAlgorithm\":\"TPM_ALG_SHA_512\"}]}}}")

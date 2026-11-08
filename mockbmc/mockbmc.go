@@ -761,6 +761,8 @@ func (b *BMC) action(w http.ResponseWriter, r *http.Request, p string) {
 		b.submitTestEvent(w, in)
 	case isAction(name, "SubmitTestMetricReport"):
 		b.submitTestMetricReport(w, in)
+	case isAction(name, "SPDMGetSignedMeasurements"):
+		b.spdmGetSignedMeasurements(w, in, resPath)
 	case isAction(name, "GenerateCSR"):
 		b.generateCSR(w, in)
 	case isAction(name, "ReplaceCertificate"):

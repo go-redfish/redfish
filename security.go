@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path"
@@ -179,7 +180,7 @@ type ComponentIntegrity struct {
 	Type        string `json:"type,omitempty"`
 	TypeVersion string `json:"type_version,omitempty"`
 	// Enabled is nil when the service does not say.
-	Enabled *bool `json:"enabled,omitempty"`
+	Enabled *bool  `json:"enabled,omitempty"`
 	State   string `json:"state,omitempty"`
 	Health  string `json:"health,omitempty"`
 	// LastUpdated is as the service wrote it.
@@ -232,7 +233,7 @@ func sessionsOf(v any) []Session {
 		if m == nil || len(out) >= maxParams {
 			continue
 		}
-		out = append(out, Session{ID: intOf(m, "SessionId"), Type: strSec(m, "SessionType"), Algorithm: strSec(m, "SessionAlgorithm")})
+		out = append(out, Session{ID: intNum(m, "SessionId"), Type: strSec(m, "SessionType"), Algorithm: strSec(m, "SessionAlgorithm")})
 	}
 	return out
 }
@@ -248,9 +249,9 @@ func measurementsOf(v any, tpm bool) []Measurement {
 		ms := Measurement{HashAlgorithm: strSec(m, "MeasurementHashAlgorithm"), PartOfSummary: boolOf(m, "PartofSummaryHash"),
 			Type: strSec(m, "MeasurementType"), SecurityVersionNumber: strSec(m, "SecurityVersionNumber"), LastUpdated: strSec(m, "LastUpdated")}
 		if tpm {
-			ms.PCR = intOf(m, "PCR")
+			ms.PCR = intNum(m, "PCR")
 		} else {
-			ms.Index = intOf(m, "MeasurementIndex")
+			ms.Index = intNum(m, "MeasurementIndex")
 		}
 		if s := str(m, "Measurement"); s != "" {
 			if d, raw, err := DecodeDigest(s, MaxDigestText); err != nil {
@@ -309,7 +310,7 @@ func parseComponentIntegrity(uri string, p Props) ComponentIntegrity {
 	}
 	if t := sub(p, "TPM"); t != nil {
 		auth := sub(t, "IdentityAuthentication")
-		ci.TPM = &TPMInfo{NonceSizeBytesMaximum: intOf(t, "NonceSizeBytesMaximum"), Measurements: measurementsOf(sub(t, "MeasurementSet")["Measurements"], true),
+		ci.TPM = &TPMInfo{NonceSizeBytesMaximum: intNum(t, "NonceSizeBytesMaximum"), Measurements: measurementsOf(sub(t, "MeasurementSet")["Measurements"], true),
 			CertificateURI: linkOf(auth, "ComponentCertificate"), VerificationStatus: strSec(auth, "VerificationStatus"),
 			Sessions: sessionsOf(sub(t, "ComponentCommunication")["Sessions"])}
 	}
@@ -500,7 +501,7 @@ func ParseSignedMeasurements(data []byte) (SignedMeasurements, error) {
 		return SignedMeasurements{}, fmt.Errorf("%w: SignedMeasurements: %v", ErrMalformed, err)
 	}
 	return SignedMeasurements{Version: strSec(p, "Version"), SigningAlgorithm: strSec(p, "SigningAlgorithm"), HashingAlgorithm: strSec(p, "HashingAlgorithm"),
-		AdditionalSigningAlgorithms: stringList(p["AdditionalSigningAlgorithms"]), CertificateURI: linkOf(p, "Certificate"),
+		AdditionalSigningAlgorithms: strs(p["AdditionalSigningAlgorithms"]), CertificateURI: linkOf(p, "Certificate"),
 		PublicKeyPEM: clipSec(str(p, "PublicKey")), Blob: d, Verification: notVerified}, nil
 }
 
@@ -764,8 +765,8 @@ func parameterSetOf(m Props) *ParameterSet {
 		return nil
 	}
 	a := sub(m, "Algorithms")
-	return &ParameterSet{Versions: stringList(m["Versions"]), AEAD: stringList(a["AEAD"]), BaseAsym: stringList(a["BaseAsym"]), BaseHash: stringList(a["BaseHash"]),
-		CipherSuites: stringList(a["CipherSuites"]), SignatureAlgorithms: stringList(a["SignatureAlgorithms"])}
+	return &ParameterSet{Versions: strs(m["Versions"]), AEAD: strs(a["AEAD"]), BaseAsym: strs(a["BaseAsym"]), BaseHash: strs(a["BaseHash"]),
+		CipherSuites: strs(a["CipherSuites"]), SignatureAlgorithms: strs(a["SignatureAlgorithms"])}
 }
 
 // SPDMPolicy is the SPDM object of a SecurityPolicy.
@@ -951,7 +952,7 @@ func parseNVMeoFSecret(uri string, p Props) NVMeoFSecret {
 	n := sub(p, "NVMeoF")
 	k := NVMeoFSecret{URI: uri, ID: strSec(p, "Id"), Name: strSec(p, "Name"), KeyType: strSec(p, "KeyType"), UserDescription: strSec(p, "UserDescription"),
 		KeyPresent: str(p, "KeyString") != "", NQN: strSec(n, "NQN"), HostKeyID: strSec(n, "HostKeyId"),
-		SecurityProtocolType: strSec(n, "SecurityProtocolType"), OEMSecurityProtocol: strSec(n, "OEMSecurityProtocolType"), SecureHashAllowList: stringList(n["SecureHashAllowList"])}
+		SecurityProtocolType: strSec(n, "SecurityProtocolType"), OEMSecurityProtocol: strSec(n, "OEMSecurityProtocolType"), SecureHashAllowList: strs(n["SecureHashAllowList"])}
 	if k.ID == "" {
 		k.ID = path.Base(uri)
 	}
@@ -986,9 +987,9 @@ func ParseKeyPolicy(uri string, data []byte) (KeyPolicy, error) {
 func parseKeyPolicy(uri string, p Props) KeyPolicy {
 	n := sub(p, "NVMeoF")
 	k := KeyPolicy{URI: uri, ID: strSec(p, "Id"), Name: strSec(p, "Name"), Type: strSec(p, "KeyPolicyType"), IsDefault: boolOf(p, "IsDefault"),
-		CipherSuites: stringList(n["CipherSuiteAllowList"]), DHGroups: stringList(n["DHGroupAllowList"]), SecureHashes: stringList(n["SecureHashAllowList"]),
-		SecurityProtocols: stringList(n["SecurityProtocolAllowList"]), OEMProtocols: stringList(n["OEMSecurityProtocolAllowList"]),
-		SecurityTransports: stringList(n["SecurityTransportAllowList"])}
+		CipherSuites: strs(n["CipherSuiteAllowList"]), DHGroups: strs(n["DHGroupAllowList"]), SecureHashes: strs(n["SecureHashAllowList"]),
+		SecurityProtocols: strs(n["SecurityProtocolAllowList"]), OEMProtocols: strs(n["OEMSecurityProtocolAllowList"]),
+		SecurityTransports: strs(n["SecurityTransportAllowList"])}
 	if k.ID == "" {
 		k.ID = path.Base(uri)
 	}
@@ -1057,4 +1058,27 @@ func (c *Client) NVMeoFKeyPolicies(ctx context.Context) ([]KeyPolicy, error) {
 		out = append(out, parseKeyPolicy(m.URI, m.Props))
 	}
 	return out, nil
+}
+
+// strs keeps the strings of a JSON array (a null or a number is not one; at most
+// maxValues).
+func strs(v any) []string {
+	l, _ := v.([]any)
+	var out []string
+	for _, x := range l {
+		if s, ok := x.(string); ok && len(out) < maxValues {
+			out = append(out, clipSec(s))
+		}
+	}
+	return out
+}
+
+// intNum is an integer property that is a JSON number, and only that.
+func intNum(p Props, key string) *int64 {
+	if n, ok := p[key].(json.Number); ok {
+		if i, err := n.Int64(); err == nil {
+			return &i
+		}
+	}
+	return nil
 }
