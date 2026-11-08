@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"SignedMeasurements\":\"AAECAw\",\"AdditionalSigningAlgorithms\":[1,null,{}],\"PublicKey\":5}")

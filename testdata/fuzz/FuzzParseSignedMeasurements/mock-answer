@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"SignedMeasurements\":\"bW9jayB0cmFuc2NyaXB0AAAA\",\"Version\":\"1.1\",\"SigningAlgorithm\":\"TPM_ALG_ECDSA_ECC_NIST_P384\",\"HashingAlgorithm\":\"TPM_ALG_SHA_384\",\"Certificate\":{\"@odata.id\":\"/redfish/v1/Chassis/1U/TrustedComponents/AC-RoT0/Certificates/DeviceCert\"}}")

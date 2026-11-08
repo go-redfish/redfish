@@ -70,6 +70,6 @@ directory and used with --session.`,
 	f.DurationVar(&g.timeout, "timeout", 0, "per-request timeout (default 10s)")
 	f.StringVarP(&g.output, "output", "o", "json", "output format: json or table")
 	f.BoolVar(&g.noExpand, "no-expand", false, "read the members of a collection one by one: never send $expand (default: send it when the service root advertises it)")
-	root.AddCommand(sessionCmd(g), rawCmd(g), systemsCmd(g), chassisCmd(g), managersCmd(g), accountsCmd(g), updateCmd(g), storageCmd(g), eventsCmd(g), telemetryCmd(g), certsCmd(g), mockCmd(g))
+	root.AddCommand(sessionCmd(g), rawCmd(g), systemsCmd(g), chassisCmd(g), managersCmd(g), accountsCmd(g), updateCmd(g), storageCmd(g), eventsCmd(g), telemetryCmd(g), certsCmd(g), securityCmd(g), mockCmd(g))
 	return root
 }

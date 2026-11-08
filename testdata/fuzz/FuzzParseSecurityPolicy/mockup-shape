@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"Name\":\"P\",\"SPDM\":{\"Enabled\":true,\"Allowed\":{\"Versions\":[\"ALL\"],\"Algorithms\":{\"AEAD\":[\"AES-GCM-256\"],\"BaseAsym\":[\"TPM_ALG_RSASSA_2048\"],\"BaseHash\":[]}},\"TrustedCertificates\":{\"@odata.id\":\"/redfish/v1/Managers/BMC/SecurityPolicy/SPDM/TrustedCertificates\"}},\"TLS\":{\"Client\":{\"VerifyCertificate\":true,\"TrustedCertificates\":{\"@odata.id\":\"/redfish/v1/x\"}},\"Server\":{\"Denied\":{\"Versions\":[\"1.1\",\"1.2\"]}}}}")

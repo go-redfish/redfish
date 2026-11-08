@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"Id\":5,\"KeyPolicyType\":[],\"IsDefault\":\"true\",\"NVMeoF\":{\"CipherSuiteAllowList\":[null,1,\"TLS_AES_128_GCM_SHA256\"],\"DHGroupAllowList\":{}},\"KeyString\":[\"DHHC-1:x\"]}")

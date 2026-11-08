@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"ComponentIntegrityType\":\"TPM\",\"TPM\":{\"MeasurementSet\":{\"Measurements\":[{\"PCR\":1,\"Measurement\":\"AAAA=\"},{\"PCR\":1e999,\"Measurement\":\"====\"},{\"PCR\":\"1\",\"Measurement\":\"AAECAw\"},null,[]]}},\"SPDM\":{\"MeasurementSet\":{\"MeasurementSummary\":\"\\u0000\"}}}")

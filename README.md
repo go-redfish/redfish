@@ -442,6 +442,47 @@ redfish ... telemetry watch -o table                      # the metric reports o
   metric reports on the existing SSE stream (`EventFormatType`).
 - **Not implemented**: see PARITY.md (the other actions of the service, trigger writes, wildcards, push delivery).
 
+## Security components, read only (v0.15.0)
+
+Beyond the Ansible modules: the integrity, trust and key resources of a BMC. The reference is the specification as
+published: the DSP8010 2025.4 schemas ComponentIntegrity 1.5.0, TrustedComponent 1.5.0, SecurityPolicy 1.1.0, KeyService
+1.0.1, KeyPolicy 1.0.1 and Key 1.4.1 (DSP0266 1.23.0 has only 12.9.3 and 13.2 on this; DSP0274 SPDM was not opened).
+**There is no write**: no revocation, no policy change, no key creation (a wrong write can lock an operator out of the
+BMC); PARITY.md lists them as "not implemented: writes, by design for this release".
+
+- **Library** (`security.go`): `ComponentIntegrities` and `ComponentIntegrity` (the SPDM and TPM identity, the
+  measurements, the sessions, the links), `TrustedComponents` and `TrustedComponent` (firmware version, TPM vendor ids,
+  links; `CertificatesOf`), `SecurityPolicy` and `PolicyCertificates` (SPDM and TLS policy, trusted and revoked
+  certificates), `KeyService`, `NVMeoFSecrets` and `NVMeoFKeyPolicies`. Every certificate goes through the certificate
+  reader and `ParseX509`. A service without the resource gives `ErrUnsupported` (the emulator tree has none); collections
+  are read with `$expand` where the service advertises it.
+- **Measurements** are Base64 with padding in the schema, not hex: each is decoded strictly (`DecodeDigest`) and given
+  as hex as well; one that is not valid Base64 is kept with its error, never hexed.
+- **`GetSignedMeasurements`** runs SPDMGetSignedMeasurements. The schema defines it as the generation of a signed
+  statement over a nonce and measurements (the BMC runs SPDM GET_MEASUREMENTS with the device; no property of the service
+  changes), so it is implemented, with its parameters checked against the ActionInfo or AllowableValues. **The
+  signature is not verified**: `signature_verified` is false, `verification` says "not verified", the CLI repeats it on
+  stderr, and the blob is returned for a verifier that implements DSP0274.
+- **Keys**: a service may return the key (`KeyString`; the DMTF mockup does). It is never a field, never printed and in
+  no error; `key_present` says it was there.
+- **CLI**: `redfish security integrity|integrity-show|measurements|trusted|policy|keys|key-policies`, `-o json|table`.
+
+```sh
+redfish ... security integrity -o table
+redfish ... security integrity-show SS-SPDM-0 --certs -o table   # INDEX/PCR TYPE ALGORITHM IN SUMMARY UPDATED VALUE (hex)
+redfish ... security measurements SS-SPDM-0 --index 1,3 --slot 0  # signed, NOT verified
+redfish ... security trusted TPM --certs
+redfish ... security policy -o table
+redfish ... security keys                                        # NQN and protocol; never the key
+```
+
+- **Bounds and fuzzing**: 256 members per collection, 1024 measurements per set, 4096 bytes of Base64 per measurement,
+  256 KiB for a signed statement. `FuzzParseComponentIntegrity`, `FuzzDecodeDigest`, `FuzzParseSignedMeasurements`,
+  `FuzzParseSecurityPolicy` and `FuzzParseKeyResources` run in the CI fuzz matrix, with committed corpora under
+  `testdata/fuzz`.
+- **Mock**: the DMTF public-rackmount1 resources as they are, plus the SPDMGetSignedMeasurements action on the SPDM
+  ComponentIntegrity resources, answered with a made-up transcript labelled as such (not an SPDM exchange, not signed).
+
 ## What it follows
 
 Each rule comes from a document opened on 2026-11-05 (see the package documentation for the details):
@@ -480,7 +521,7 @@ Chassis v1.29.0 but still the one most BMCs serve).
 
 ## Status
 
-v0.14.0: the TelemetryService, metric reports and their stream (beyond the Ansible parity); v0.13.0: `$expand` in the storage, host interface, virtual media, log and health reads; v0.12.0: the query parameters, `$expand` in the read paths (beyond the Ansible parity); v0.11.0: the CertificateService and its certificates (beyond the Ansible parity); v0.10.0: the EventService, subscriptions and the SSE stream (beyond the Ansible parity); v0.9.0: the Storage commands (parity 99/99); v0.8.0: the UpdateService commands; v0.7.0: the Accounts and Sessions commands; v0.6.0: the Managers commands, virtual media and logs; v0.5.0: the Chassis commands; v0.4.0: the Systems commands (library, CLI, second mock tree); v0.3.0: the generic client, the mock BMC and the CLI; v0.2.0 and before: the energy reader. Section
+v0.15.0: the security components, read only (beyond the Ansible parity); v0.14.0: the TelemetryService, metric reports and their stream (beyond the Ansible parity); v0.13.0: `$expand` in the storage, host interface, virtual media, log and health reads; v0.12.0: the query parameters, `$expand` in the read paths (beyond the Ansible parity); v0.11.0: the CertificateService and its certificates (beyond the Ansible parity); v0.10.0: the EventService, subscriptions and the SSE stream (beyond the Ansible parity); v0.9.0: the Storage commands (parity 99/99); v0.8.0: the UpdateService commands; v0.7.0: the Accounts and Sessions commands; v0.6.0: the Managers commands, virtual media and logs; v0.5.0: the Chassis commands; v0.4.0: the Systems commands (library, CLI, second mock tree); v0.3.0: the generic client, the mock BMC and the CLI; v0.2.0 and before: the energy reader. Section
 numbers cited in the code are DSP0266 1.23.0's.
 
 **Performance.** `BenchmarkGet` (one resource of the mock over TLS keep-alive, client and mock in one process,
