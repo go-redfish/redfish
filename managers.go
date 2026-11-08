@@ -746,6 +746,10 @@ type slot struct {
 	allow string // the Allow header
 }
 
+// readSlots reads each VirtualMedia slot on its own and does not use $expand
+// (unlike VirtualMedia, which lists them): the Allow header of each slot's own
+// answer decides whether an insert or an eject is permitted, and an expanded
+// member carries no header of its own.
 func (c *Client) readSlots(ctx context.Context, resURI string) ([]slot, error) {
 	_, coll, err := c.linked(ctx, resURI, "VirtualMedia")
 	if err != nil {
