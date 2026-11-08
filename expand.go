@@ -128,5 +128,50 @@ func (c *Client) expandedMembers(ctx context.Context, coll string, max, pages in
 	return out, true, nil
 }
 
+// pageMaybeExpanded reads one page of a collection whose members are wanted
+// whole: with $expand=. when expand is true, and on any failure of that request
+// (but a cancelled context) as the plain page.
+func (c *Client) pageMaybeExpanded(ctx context.Context, p string, expand bool) (*Response, error) {
+	if expand {
+		r, err := c.Get(withLimit(ctx), withExpand(p))
+		if err == nil {
+			return r, nil
+		}
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+	}
+	return c.Get(ctx, p)
+}
+
+// expandedView reads the collection at coll with $expand=. and returns the
+// members that came expanded, by path. It is for a caller that already knows
+// the members from a plain read of the collection (the health walk, which does
+// not know that a link is a collection until it has read it): the members it
+// lists are the ones of the plain read, and the view only supplies their
+// content, so a member missing from the view, a link-only member, or any
+// failure of the expanded request (nil is returned) leaves that member to be
+// read on its own.
+func (c *Client) expandedView(ctx context.Context, coll string) map[string]Props {
+	r, err := c.Get(withLimit(ctx), withExpand(coll))
+	if err != nil {
+		return nil
+	}
+	p, err := decodeProps(r.Body)
+	if err != nil {
+		return nil
+	}
+	list, _ := p["Members"].([]any)
+	out := map[string]Props{}
+	for _, x := range list {
+		m, _ := x.(map[string]any)
+		id, _ := m["@odata.id"].(string)
+		if u := servicePath(id); u != "" && len(m) > 1 {
+			out[u] = m
+		}
+	}
+	return out
+}
+
 // notAuth tolerates every read error but a refusal of the credentials.
 func notAuth(err error) bool { return !errors.Is(err, ErrAuth) }

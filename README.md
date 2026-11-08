@@ -369,9 +369,12 @@ a row of the section "Beyond the Ansible modules" of [PARITY.md](PARITY.md).
   with another parameter, and a value is percent-encoded so that it cannot add a parameter. The read paths that were N+1
   now send `$expand=.` when the root advertises it (`CPUInventory`, `MemoryInventory`, `NICInventory`,
   `ChassisSensors`, the power and thermal subsystems, `ChassisInventory`, `FirmwareInventory`, `SoftwareInventory`,
-  `ListUsers`, `Roles`, `Subscriptions`), and read the members one by one when it does not, when `Config.NoExpand` is
+  `ListUsers`, `Roles`, `Subscriptions`; since v0.13.0 also `StorageControllerInventory`, `DiskInventory`,
+  `VolumeInventory`, `HostInterfaces`, `VirtualMedia`, the LogService resources and the entries of `Logs`, and the
+  collections the health reports walk), and read the members one by one when it does not, when `Config.NoExpand` is
   set, or when the expanded answer fails (501, 507, too large): the answers are the same. Against the mock,
-  `ChassisSensors` takes 2 requests instead of 43, `CPUInventory` 2 instead of 5.
+  `ChassisSensors` takes 2 requests instead of 43, `CPUInventory` 2 instead of 5, `SystemHealthReport` 11 instead of
+  20, `VolumeInventory` 6 instead of 10.
 - **CLI**: `redfish raw get PATH --expand N [--expand-kind nolinks|links|all] --select A,B --top N --skip N --only
   --excerpt --filter EXPR`, each refused when it is not advertised; the global `--no-expand` forces the per-member reads of
   the inventory and listing commands (the default is to expand when advertised).
@@ -383,8 +386,10 @@ a row of the section "Beyond the Ansible modules" of [PARITY.md](PARITY.md).
   says. `Queries()` logs the raw query of each request.
 - **Fuzzed**: `FuzzQueryEncode`, `FuzzParseProtocolFeatures` (committed seeds under `testdata/fuzz`).
 - **Not implemented**: `includeoriginofcondition` (it belongs to the event stream), `$skiptoken` (opaque, followed
-  through the next link), OEM parameters, `$expand` on the reads that follow links across resources (storage, virtual
-  media, health reports), and `$expand` of the log entries (they are already expanded by the schema, 9.13.11).
+  through the next link), OEM parameters, `$top` on the log entries (a shorter page need not carry a next link, so the
+  entries read could differ), and `$expand` where there is no collection to read: the drives of a Storage (an array of
+  links in the resource), the VirtualMedia slots read by insert and eject (each answer's `Allow` header is needed),
+  the single link of a health report.
 
 ## What it follows
 
@@ -424,7 +429,7 @@ Chassis v1.29.0 but still the one most BMCs serve).
 
 ## Status
 
-v0.12.0: the query parameters, `$expand` in the read paths (beyond the Ansible parity); v0.11.0: the CertificateService and its certificates (beyond the Ansible parity); v0.10.0: the EventService, subscriptions and the SSE stream (beyond the Ansible parity); v0.9.0: the Storage commands (parity 99/99); v0.8.0: the UpdateService commands; v0.7.0: the Accounts and Sessions commands; v0.6.0: the Managers commands, virtual media and logs; v0.5.0: the Chassis commands; v0.4.0: the Systems commands (library, CLI, second mock tree); v0.3.0: the generic client, the mock BMC and the CLI; v0.2.0 and before: the energy reader. Section
+v0.13.0: `$expand` in the storage, host interface, virtual media, log and health reads; v0.12.0: the query parameters, `$expand` in the read paths (beyond the Ansible parity); v0.11.0: the CertificateService and its certificates (beyond the Ansible parity); v0.10.0: the EventService, subscriptions and the SSE stream (beyond the Ansible parity); v0.9.0: the Storage commands (parity 99/99); v0.8.0: the UpdateService commands; v0.7.0: the Accounts and Sessions commands; v0.6.0: the Managers commands, virtual media and logs; v0.5.0: the Chassis commands; v0.4.0: the Systems commands (library, CLI, second mock tree); v0.3.0: the generic client, the mock BMC and the CLI; v0.2.0 and before: the energy reader. Section
 numbers cited in the code are DSP0266 1.23.0's.
 
 **Performance.** `BenchmarkGet` (one resource of the mock over TLS keep-alive, client and mock in one process,

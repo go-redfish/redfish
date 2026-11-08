@@ -494,6 +494,23 @@ func convertedReads() []read {
 		{"ListUsers", func(c *redfish.Client) (any, error) { return c.ListUsers(ctx) }, true},
 		{"Roles", func(c *redfish.Client) (any, error) { return c.Roles(ctx) }, true},
 		{"Subscriptions", func(c *redfish.Client) (any, error) { return c.Subscriptions(ctx) }, true},
+		// v0.13.0
+		{"StorageControllerInventory", func(c *redfish.Client) (any, error) { return c.StorageControllerInventory(ctx, sysPath) }, true},
+		{"DiskInventory", func(c *redfish.Client) (any, error) { return c.DiskInventory(ctx, sysPath) }, true},
+		{"VolumeInventory", func(c *redfish.Client) (any, error) { return c.VolumeInventory(ctx, sysPath) }, true},
+		{"HostInterfaces", func(c *redfish.Client) (any, error) { return c.HostInterfaces(ctx) }, true},
+		{"VirtualMedia", func(c *redfish.Client) (any, error) { // the system on the rackmount, the manager on the emulator
+			vm, err := c.VirtualMedia(ctx, sysPath)
+			if errors.Is(err, redfish.ErrUnsupported) {
+				return c.VirtualMedia(ctx, mgrPath)
+			}
+			return vm, err
+		}, true},
+		{"LogsManager", func(c *redfish.Client) (any, error) { return c.Logs(ctx, mgrPath, 0) }, true},
+		{"LogsSystem", func(c *redfish.Client) (any, error) { return c.Logs(ctx, sysPath, 0) }, true},
+		{"SystemHealthReport", func(c *redfish.Client) (any, error) { return c.SystemHealthReport(ctx, sysPath) }, true},
+		{"ManagerHealthReport", func(c *redfish.Client) (any, error) { return c.ManagerHealthReport(ctx, mgrPath) }, false},
+		{"ChassisHealthReport", func(c *redfish.Client) (any, error) { return c.ChassisHealthReport(ctx, chassisPath) }, false},
 	}
 }
 
@@ -574,6 +591,10 @@ func TestConvertedReadsRequestCounts(t *testing.T) {
 		"CPUInventory": {2, 5}, "MemoryInventory": {2, 6}, "NICInventory": {2, 6}, "ChassisSensors": {2, 43},
 		"ChassisPowerSubsystem": {4, 6}, "ChassisThermalSubsystem": {5, 9}, "ChassisInventory": {2, 3},
 		"FirmwareInventory": {3, 6}, "SoftwareInventory": {3, 5}, "ListUsers": {3, 4}, "Roles": {3, 6}, "Subscriptions": {3, 7},
+		// v0.13.0 (the health reports of a manager and of a chassis have no collection of two or more members to read on this tree: no change)
+		"StorageControllerInventory": {3, 6}, "DiskInventory": {9, 11}, "VolumeInventory": {6, 10}, "HostInterfaces": {6, 8},
+		"VirtualMedia": {2, 4}, "LogsManager": {3, 4}, "LogsSystem": {3, 4},
+		"SystemHealthReport": {11, 20}, "ManagerHealthReport": {1, 1}, "ChassisHealthReport": {3, 3},
 	}
 	b, srv := newMock(t, mockbmc.Options{})
 	auto := newClient(t, srv, redfish.Config{})
@@ -639,4 +660,101 @@ func TestExpandIgnoredByTheServiceFallsBackToMembers(t *testing.T) {
 	if !slices.ContainsFunc(seen, func(s string) bool { return strings.Contains(s, "$expand") }) {
 		t.Error("the expanded request was never tried")
 	}
+}
+
+// A service that lists the entries of a log as links (the collection itself
+// does not inline them) costs one request per entry; with $expand=. a page of
+// entries is one request. The entries read are the same, and a service that
+// refuses the expanded page (507) gives them member by member as before.
+func TestLogEntriesListedAsLinksAreExpanded(t *testing.T) {
+	ctx := context.Background()
+	b, err := mockbmc.New(mockbmc.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var seen []string
+	refuse := false
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = append(seen, r.URL.Path+"?"+r.URL.RawQuery)
+		expanded := strings.Contains(r.URL.RawQuery, "$expand")
+		if refuse && expanded && strings.HasSuffix(r.URL.Path, "/Entries") {
+			http.Error(w, `{"error":{"code":"Base.1.19.GeneralError","message":"too big"}}`, http.StatusInsufficientStorage)
+			return
+		}
+		rec := httptest.NewRecorder()
+		b.Handler().ServeHTTP(rec, r)
+		body := rec.Body.Bytes()
+		if strings.HasSuffix(r.URL.Path, "/Entries") && !expanded && rec.Code == http.StatusOK {
+			var p map[string]any
+			if json.Unmarshal(body, &p) == nil {
+				list, _ := p["Members"].([]any)
+				for i, x := range list {
+					m, _ := x.(map[string]any)
+					list[i] = map[string]any{"@odata.id": m["@odata.id"]}
+				}
+				body, _ = json.Marshal(p)
+			}
+		}
+		for k, v := range rec.Header() {
+			if k != "Content-Length" {
+				w.Header()[k] = v
+			}
+		}
+		w.WriteHeader(rec.Code)
+		_, _ = w.Write(body)
+	}))
+	t.Cleanup(srv.Close)
+	count := func(c *redfish.Client) (string, int) {
+		seen = nil
+		l, err := c.Logs(ctx, mgrPath, 0)
+		return encodeAny(t, l, err), len(seen)
+	}
+	if _, err := newClient(t, srv, redfish.Config{}).ProtocolFeatures(ctx); err != nil {
+		t.Fatal(err)
+	}
+	on, nOn := count(newClient(t, srv, redfish.Config{}))
+	off, nOff := count(newClient(t, srv, redfish.Config{NoExpand: true}))
+	refuse = true
+	refused, nRefused := count(newClient(t, srv, redfish.Config{}))
+	if on != off || refused != off {
+		t.Fatalf("the entries differ:\n%s\n%s\n%s", on, off, refused)
+	}
+	if !strings.Contains(off, "Message") {
+		t.Fatalf("no entry was read: %s", off)
+	}
+	if nOn >= nOff {
+		t.Errorf("link-only entries: %d requests with $expand, %d member by member", nOn, nOff)
+	}
+	if nRefused <= nOn {
+		t.Errorf("a refused expanded page costs the plain reads: %d requests, %d expanded", nRefused, nOn)
+	}
+	t.Logf("link-only entries: %d requests with $expand, %d member by member, %d after a 507", nOn, nOff, nRefused)
+}
+
+// A service that advertises $expand and answers every expanded request with
+// 507: each read converted in v0.13.0 starts again member by member and gives
+// the answer of a service that advertises nothing.
+func TestV013ReadsFallBackOnRefusedExpand(t *testing.T) {
+	ctx := context.Background()
+	b, err := mockbmc.New(mockbmc.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.RawQuery, "$expand") {
+			http.Error(w, `{"error":{"code":"Base.1.19.GeneralError","message":"too big"}}`, http.StatusInsufficientStorage)
+			return
+		}
+		b.Handler().ServeHTTP(w, r)
+	}))
+	t.Cleanup(srv.Close)
+	_, plain := newMock(t, mockbmc.Options{NoQueries: true})
+	for _, r := range convertedReads() {
+		got, gerr := r.fn(newClient(t, srv, redfish.Config{}))
+		want, werr := r.fn(newClient(t, plain, redfish.Config{}))
+		if a, z := encodeAny(t, got, gerr), encodeAny(t, want, werr); a != z {
+			t.Errorf("%s after a 507:\n%s\nwithout $expand:\n%s", r.name, a, z)
+		}
+	}
+	_ = ctx
 }
