@@ -41,7 +41,7 @@ import (
 // ticks, `redfish mock serve` ticks on an interval. The CollectionFunction of a
 // metric is accepted and checked against the supported functions, but the mock
 // reports the point value: it keeps no history to average over. Wildcards are
-// refused. The mock's clock is Options.Now.
+// refused. The mock's clock is Options.Clock.
 //
 // Over the stream a metric report is an event of the format MetricReport: the
 // $filter criterion EventFormatType separates it from the Events, and a stream
@@ -84,8 +84,8 @@ func (b *BMC) TestMetricReports() []map[string]any {
 }
 
 func (b *BMC) now() time.Time {
-	if b.opts.Now != nil {
-		return b.opts.Now().UTC()
+	if b.opts.Clock != nil {
+		return b.opts.Clock.Now().UTC()
 	}
 	return time.Now().UTC()
 }

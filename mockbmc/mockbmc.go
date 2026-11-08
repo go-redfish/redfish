@@ -107,10 +107,21 @@ type Options struct {
 	// NoQueries makes TreeRackmount a service that does not advertise the query
 	// parameters of DSP0266 7.3 (query.go); TreeEmulator never does.
 	NoQueries bool
-	// Now is the clock of the telemetry service (telemetry.go): the timestamps of
-	// the reports. Default time.Now.
-	Now func() time.Time
+	// Clock is the clock of the telemetry service (telemetry.go): the timestamps of
+	// the reports. Default: the system clock. It is an interface, not a function,
+	// so that Options stays comparable (a func field would break the callers that
+	// compare Options values).
+	Clock Clock
 }
+
+// Clock tells the time.
+type Clock interface{ Now() time.Time }
+
+// ClockFunc makes a Clock of a function.
+type ClockFunc func() time.Time
+
+// Now calls the function.
+func (f ClockFunc) Now() time.Time { return f() }
 
 // BMC is the mock service. Handler serves it; it is safe for concurrent use.
 type BMC struct {

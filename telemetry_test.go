@@ -20,17 +20,17 @@ import (
 const telBase = "/redfish/v1/TelemetryService"
 
 // clock is a mock clock that moves ten seconds at each reading.
-func clock() func() time.Time {
+func clock() mockbmc.Clock {
 	t := time.Date(2026, 11, 8, 12, 0, 0, 0, time.UTC)
-	return func() time.Time {
+	return mockbmc.ClockFunc(func() time.Time {
 		t = t.Add(10 * time.Second)
 		return t
-	}
+	})
 }
 
 func telMock(t *testing.T, tree string) (*mockbmc.BMC, *redfish.Client) {
 	t.Helper()
-	b, srv := newMock(t, mockbmc.Options{Tree: tree, Now: clock()})
+	b, srv := newMock(t, mockbmc.Options{Tree: tree, Clock: clock()})
 	return b, newClient(t, srv, redfish.Config{})
 }
 
@@ -218,7 +218,7 @@ func TestTelemetryReads(t *testing.T) {
 // The reads give the same answer with $expand (one request per collection) and
 // without it (member by member).
 func TestTelemetryReadsWithAndWithoutExpand(t *testing.T) {
-	b, srv := newMock(t, mockbmc.Options{Now: clock()})
+	b, srv := newMock(t, mockbmc.Options{Clock: clock()})
 	ctx := context.Background()
 	plain := newClient(t, srv, redfish.Config{NoExpand: true})
 	expanded := newClient(t, srv, redfish.Config{})
@@ -572,7 +572,7 @@ func TestSubmitTestMetricReportChecksTheActionInfo(t *testing.T) {
 // ---- The stream ----
 
 func TestMetricReportsOverTheEventStream(t *testing.T) {
-	b, srv := newMock(t, mockbmc.Options{Now: clock()})
+	b, srv := newMock(t, mockbmc.Options{Clock: clock()})
 	c := newClient(t, srv, redfish.Config{Session: true})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -620,7 +620,7 @@ func TestMetricReportsOverTheEventStream(t *testing.T) {
 }
 
 func TestEventStreamWithoutFilterCarriesBothFormats(t *testing.T) {
-	b, srv := newMock(t, mockbmc.Options{Now: clock()})
+	b, srv := newMock(t, mockbmc.Options{Clock: clock()})
 	c := newClient(t, srv, redfish.Config{Session: true})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -651,7 +651,7 @@ func TestEventStreamWithoutFilterCarriesBothFormats(t *testing.T) {
 }
 
 func TestSubmitTestMetricReportOverTheStream(t *testing.T) {
-	_, srv := newMock(t, mockbmc.Options{Now: clock()})
+	_, srv := newMock(t, mockbmc.Options{Clock: clock()})
 	c := newClient(t, srv, redfish.Config{Session: true})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

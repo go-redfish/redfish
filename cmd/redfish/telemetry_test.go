@@ -51,7 +51,7 @@ func TestTelemetryReadCommands(t *testing.T) {
 }
 
 func TestTelemetryReportTable(t *testing.T) {
-	e := newEnvOpts(t, mockbmc.Options{Now: tick()})
+	e := newEnvOpts(t, mockbmc.Options{Clock: tick()})
 	for _, r := range []any{410, 455.5} {
 		body, _ := json.Marshal(map[string]any{"Reading": r})
 		if _, _, err := e.run("raw", "patch", "/redfish/v1/Chassis/1U/Sensors/TotalPower", "--data", string(body)); err != nil {
@@ -90,7 +90,7 @@ func TestTelemetryReportTable(t *testing.T) {
 
 // A value that is null or not a number is shown as it is, never as 0.
 func TestTelemetryReportTableNeverShowsNonNumbersAsZero(t *testing.T) {
-	e := newEnvOpts(t, mockbmc.Options{Now: tick()})
+	e := newEnvOpts(t, mockbmc.Options{Clock: tick()})
 	for _, body := range []string{`{"Reading":"N/A"}`, `{"Reading":null}`} {
 		if _, _, err := e.run("raw", "patch", "/redfish/v1/Chassis/1U/Sensors/TotalPower", "--data", body); err != nil {
 			t.Fatal(err)
@@ -115,12 +115,12 @@ func TestTelemetryReportTableNeverShowsNonNumbersAsZero(t *testing.T) {
 	}
 }
 
-func tick() func() time.Time {
+func tick() mockbmc.Clock {
 	t := time.Date(2026, 11, 8, 12, 0, 0, 0, time.UTC)
-	return func() time.Time {
+	return mockbmc.ClockFunc(func() time.Time {
 		t = t.Add(10 * time.Second)
 		return t
-	}
+	})
 }
 
 func TestTelemetryCreateAndDeleteCommands(t *testing.T) {
@@ -205,7 +205,7 @@ func TestTelemetryTestCommand(t *testing.T) {
 }
 
 func TestTelemetryWatch(t *testing.T) {
-	e := newEnvOpts(t, mockbmc.Options{Now: tick()})
+	e := newEnvOpts(t, mockbmc.Options{Clock: tick()})
 	var out syncBuffer
 	cmd := RootCmd()
 	cmd.SetOut(&out)
