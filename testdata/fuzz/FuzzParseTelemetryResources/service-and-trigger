@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"Id\":\"T\",\"Name\":\"T\",\"MaxReports\":8,\"MinCollectionInterval\":\"PT1S\",\"SupportedCollectionFunctions\":[\"Average\",null],\"Actions\":{\"#TelemetryService.SubmitTestMetricReport\":{\"target\":\"/x\"}},\"NumericThresholds\":{\"UpperCritical\":{\"Reading\":\"x\",\"Activation\":5},\"LowerWarning\":{\"Reading\":1e999}},\"DiscreteTriggers\":[1,2],\"MetricIds\":[null],\"MinReadingRange\":1e999}")

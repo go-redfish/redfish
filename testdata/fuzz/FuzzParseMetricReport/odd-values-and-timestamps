@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"Id\":1.5,\"Timestamp\":\"2026-13-45T25:61:61Z\",\"MetricValues\":[{\"MetricValue\":null},{\"MetricValue\":1e400},{\"MetricValue\":\"1e400\",\"Timestamp\":\"0000-00-00T00:00:00Z\"},{\"MetricValue\":[1,2],\"Timestamp\":null},{\"MetricValue\":\"NaN\",\"Timestamp\":\"2026-11-08T12:00:00.9999999999Z\"},{\"MetricValue\":\" 5\"},{\"MetricValue\":\"-0\",\"Timestamp\":\"2026-11-08T12:00:00+99:99\"},{\"MetricValue\":{\"a\":1}}]}")

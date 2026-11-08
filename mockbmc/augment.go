@@ -69,6 +69,7 @@ func (b *BMC) augment(tree string) {
 	b.augmentUpdate(tree)
 	b.augmentEvents(tree)
 	b.augmentCertificates()
+	b.augmentTelemetry()
 }
 
 // augmentManagers adds what the Managers commands need:

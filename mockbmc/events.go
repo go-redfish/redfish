@@ -56,6 +56,9 @@ type eventHub struct {
 type histEvent struct {
 	id  int
 	rec map[string]any
+	// report is set for a metric report (the event format MetricReport,
+	// telemetry.go): the stream sends it as it is, and rec is nil.
+	report map[string]any
 }
 
 // Subscribed returns the bodies of the subscriptions accepted by POST so far,
@@ -365,6 +368,9 @@ func (p *fparser) unary() (fnode, error) {
 		}
 		switch prop {
 		case "EventFormatType":
+			if kind, _ := rec["@format"].(string); kind != "" {
+				return val == kind
+			}
 			return val == "Event"
 		case "MessageId":
 			parts := strings.Split(mid, ".")
@@ -467,11 +473,20 @@ func (b *BMC) sse(w http.ResponseWriter, r *http.Request) {
 			for k, v := range e.rec {
 				rec[k] = v
 			}
-			if !match(rec, resLocked) {
-				continue
+			var payload map[string]any
+			if e.report != nil { // a metric report (DSP0266 12.5.2.2): the data is the MetricReport
+				if !match(map[string]any{"@format": "MetricReport"}, resLocked) {
+					continue
+				}
+				payload = cloneJSON(e.report)
+				payload["Context"] = ctx
+			} else {
+				if !match(rec, resLocked) {
+					continue
+				}
+				rec["Context"] = ctx
+				payload = map[string]any{"@odata.type": "#Event.v1_6_0.Event", "Id": strconv.Itoa(e.id), "Name": "Event Array", "Context": ctx, "Events": []any{rec}}
 			}
-			rec["Context"] = ctx
-			payload := map[string]any{"@odata.type": "#Event.v1_6_0.Event", "Id": strconv.Itoa(e.id), "Name": "Event Array", "Context": ctx, "Events": []any{rec}}
 			data, _ := json.MarshalIndent(payload, "", "    ")
 			var sb strings.Builder
 			sb.WriteString("id: " + strconv.Itoa(e.id) + "\n")
