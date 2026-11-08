@@ -206,13 +206,14 @@ func renderTable(w io.Writer, v any) error {
 	sort.Strings(keys)
 	fmt.Fprintln(tw, "PROPERTY\tVALUE")
 	for _, k := range keys {
+		name := clean(k) // a property name is as much the BMC's text as a value
 		switch x := m[k].(type) {
 		case map[string]any:
-			fmt.Fprintf(tw, "%s\t{%d properties}\n", k, len(x))
+			fmt.Fprintf(tw, "%s\t{%d properties}\n", name, len(x))
 		case []any:
-			fmt.Fprintf(tw, "%s\t[%d items]\n", k, len(x))
+			fmt.Fprintf(tw, "%s\t[%d items]\n", name, len(x))
 		default:
-			fmt.Fprintf(tw, "%s\t%s\n", k, scalar(x))
+			fmt.Fprintf(tw, "%s\t%s\n", name, scalar(x))
 		}
 	}
 	return tw.Flush()

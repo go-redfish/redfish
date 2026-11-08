@@ -351,3 +351,21 @@ func FuzzRenderTable(f *testing.F) {
 		}
 	})
 }
+
+// The property names of a resource are the BMC's text like its values: a
+// control character in one (here as the JSON escape of an ESC) must not reach
+// the terminal from the PROPERTY column. FuzzRenderTable found it
+// (testdata/fuzz/FuzzRenderTable/propertyname-escape).
+func TestRenderTableCleansPropertyNames(t *testing.T) {
+	var b bytes.Buffer
+	g := &globals{output: "table"}
+	if err := g.printDoc(&b, []byte(`{"\u001b[31mred":1,"o\u001b":{"x":1},"l\u0007":[1]}`)); err != nil {
+		t.Fatal(err)
+	}
+	if strings.ContainsAny(b.String(), "\x1b\x07") {
+		t.Errorf("a control character reached the table: %q", b.String())
+	}
+	if !strings.Contains(b.String(), "red") {
+		t.Errorf("the property is gone: %q", b.String())
+	}
+}

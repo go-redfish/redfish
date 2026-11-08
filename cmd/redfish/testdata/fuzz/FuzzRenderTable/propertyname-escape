@@ -1,0 +1,2 @@
+go test fuzz v1
+string("{\"\\u001b[31mred\":1}")
