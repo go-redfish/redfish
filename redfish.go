@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 )
 
 // Limits.
@@ -170,7 +171,11 @@ func New(cfg Config) (*Client, error) {
 	if cfg.Credentials == nil {
 		cfg.Credentials = Static{}
 	}
-	if cfg.SessionURI != "" && sessionPath(cfg.SessionURI) == "" {
+	sessLoc, serr := sessionPath(cfg.SessionURI)
+	if serr != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInsecure, serr)
+	}
+	if cfg.SessionURI != "" && sessLoc == "" {
 		return nil, fmt.Errorf("%w: the session URI %q is not under /redfish/", ErrInsecure, cfg.SessionURI)
 	}
 	if cfg.Timeout <= 0 {
@@ -178,7 +183,7 @@ func New(cfg Config) (*Client, error) {
 	}
 	c := &Client{cfg: cfg, base: base, token: cfg.Token}
 	if cfg.Token != "" {
-		c.location = sessionPath(cfg.SessionURI)
+		c.location = sessLoc
 		c.cfg.Session = true
 	}
 	hc := cfg.HTTP
@@ -357,17 +362,40 @@ func (c *Client) login(ctx context.Context) error {
 	if tok == "" {
 		return fmt.Errorf("%w: the session answer has no X-Auth-Token", ErrMalformed)
 	}
+	loc, err := sessionPath(h.Get("Location"))
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrMalformed, err)
+	}
 	c.mu.Lock()
-	c.token, c.location = tok, sessionPath(h.Get("Location"))
+	c.token, c.location = tok, loc
 	c.mu.Unlock()
 	return nil
 }
 
-func sessionPath(loc string) string {
-	if u, err := url.Parse(loc); err == nil && strings.HasPrefix(u.Path, "/redfish/") {
-		return u.Path
+// sessionPath is the path of a Session resource given as a Location or a
+// SessionURI: "" when it is not under /redfish/ (nothing to DELETE), an error
+// when it holds a control character (the decoded path is printed and saved) or
+// a "." or ".." segment (the DELETE of Close would leave the Sessions
+// collection). It never rewrites: what is refused is refused whole.
+func sessionPath(loc string) (string, error) {
+	u, err := url.Parse(loc)
+	if err != nil || !strings.HasPrefix(u.Path, "/redfish/") {
+		return "", nil
 	}
-	return ""
+	for _, r := range u.Path {
+		if r < 0x20 || (r >= 0x7f && r <= 0x9f) || r == utf8.RuneError {
+			return "", fmt.Errorf("the session location %q holds a control or invalid character", loc)
+		}
+	}
+	for _, seg := range strings.Split(u.Path, "/") {
+		if seg == ".." || seg == "." {
+			return "", fmt.Errorf("the session location %q holds a %q segment", loc, seg)
+		}
+	}
+	if strings.ContainsAny(u.Path, "?#") { // an encoded one: it would be re-read as a query
+		return "", fmt.Errorf("the session location %q holds a query or fragment delimiter", loc)
+	}
+	return u.Path, nil
 }
 
 // Close ends the session, if one was opened.

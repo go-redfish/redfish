@@ -1,0 +1,2 @@
+go test fuzz v1
+string("/redfish/v1/SessionService/Sessions/%2e%2e/%2e%2e/AccountService/Accounts/1")

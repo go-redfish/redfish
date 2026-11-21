@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\x1b]0;pwned\a\x1b[2Jx\u009b2J‮gnp.exe")
