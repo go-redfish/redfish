@@ -64,6 +64,15 @@ redfish ... raw patch /redfish/v1/Systems/1 --data '{"AssetTag":"rack-7"}' --if-
   default; `--insecure` is explicit and warns on stderr. `raw get|patch|put|post|delete|head` cover redfishtool's
   `raw`, and `root`, `versions`, `odata`, `metadata` are `raw get` of their paths.
 
+  **The BMC is not trusted with the terminal.** Everything it sends that reaches stdout or stderr (values, property
+  names, error messages, a body that is not JSON, event text, the session location) has its control characters
+  replaced by `?` in `-o table` and the error text, or written as `\uXXXX` in `-o json`: C0 (a tab and a newline stay in
+  multi-line text), DEL, C1 (U+0080 to U+009F) and the bidirectional controls (U+202A to U+202E, U+2066 to U+2069,
+  U+200E, U+200F). A session `Location` with a control character or a `.` or `..` segment is refused by `session login`
+  (v0.15.1). The session file and the password file are opened once, never through a symlink, and checked on the open
+  descriptor (regular file, mode 0600, bounded size); the session file is written to a random temporary name created
+  exclusively, then renamed.
+
 ## Systems (v0.4.0)
 
 The Systems commands of the three Ansible modules, ported from community.general's `redfish_utils` (the oracle,

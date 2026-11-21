@@ -37,7 +37,8 @@ func main() {
 // silences cobra's own print), returning the exit status.
 func execute(ctx context.Context, root *cobra.Command, stderr io.Writer) int {
 	if err := root.ExecuteContext(ctx); err != nil {
-		fmt.Fprintln(stderr, err)
+		// The error text can carry the BMC's own (StatusError.Error).
+		fmt.Fprintln(stderr, cleanText(err.Error()))
 		return 1
 	}
 	return 0

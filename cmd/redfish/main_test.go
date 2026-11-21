@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"encoding/pem"
 	"os"
 	"path/filepath"
@@ -335,20 +334,15 @@ func FuzzRenderTable(f *testing.F) {
 	f.Add(`{"a":"\u001b[31mred","b":[1,2],"c":{"d":null}}`)
 	f.Add(`[1,"two"]`)
 	f.Add(`[{"a":1,"b":{"c":1}},{"d":[1],"\u001b[31m":"x"},{}]`)
+	f.Add("{\"Name\":\"a\u009b2Jb‮gnp.exe\"}")
+	f.Add("\x1b[2J raw escape, not JSON")
 	f.Fuzz(func(t *testing.T, doc string) {
+		// Every input is checked, one that already holds an escape too: that
+		// is the case that must not reach the output.
 		var b bytes.Buffer
 		g := &globals{output: "table"}
 		_ = g.printDoc(&b, []byte(doc))
-		if strings.ContainsRune(b.String(), 0x1b) && !strings.Contains(doc, "\x1b") {
-			t.Fatal("an escape appeared from nowhere")
-		}
-		var tb bytes.Buffer
-		if json.Valid([]byte(doc)) {
-			_ = g.printDoc(&tb, []byte(doc))
-			if strings.ContainsRune(tb.String(), 0x1b) {
-				t.Fatalf("an escape reached the output: %q", tb.String())
-			}
-		}
+		mustBeClean(t, "renderTable", b.String())
 	})
 }
 

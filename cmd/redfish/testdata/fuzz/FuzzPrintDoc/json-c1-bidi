@@ -1,0 +1,2 @@
+go test fuzz v1
+string("{\"Name\":\"a\u009b2Jb‮gnp.exe\",\"k\u007f\":\"⁦\"}")

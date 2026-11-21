@@ -48,7 +48,7 @@ answer carries the X-Auth-Token and the Session resource. The token is saved
 			if err := writeSecret(p, b); err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "session opened: %s\n", uri)
+			fmt.Fprintf(cmd.OutOrStdout(), "session opened: %s\n", clean(uri))
 			return nil
 		},
 	})
@@ -88,7 +88,7 @@ answer carries the X-Auth-Token and the Session resource. The token is saved
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "session saved for %s: %s\n", s.Endpoint, s.URI)
+			fmt.Fprintf(cmd.OutOrStdout(), "session saved for %s: %s\n", clean(s.Endpoint), clean(s.URI))
 			return nil
 		},
 	})
@@ -164,16 +164,4 @@ it already holds the value.`,
 	pf.add(cfg)
 	cmd.AddCommand(cfg)
 	return cmd
-}
-
-// writeSecret writes a file that only its owner can read, replacing any.
-func writeSecret(p string, b []byte) error {
-	tmp := p + ".new"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
-		return err
-	}
-	if err := os.Chmod(tmp, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, p)
 }

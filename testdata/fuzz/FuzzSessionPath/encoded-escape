@@ -1,0 +1,2 @@
+go test fuzz v1
+string("/redfish/v1/SessionService/Sessions/1%1b%5b2J%1b%5d0;pwned%07")

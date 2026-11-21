@@ -333,7 +333,7 @@ func (g *globals) printEvent(w io.Writer, ev redfish.Event) error {
 		if err != nil {
 			return err
 		}
-		_, err = fmt.Fprintf(w, "%s\n", b)
+		_, err = fmt.Fprintf(w, "%s\n", escapeJSON(b))
 		return err
 	}
 	if ev.Err != nil {
