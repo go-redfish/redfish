@@ -149,9 +149,10 @@ func (r *Response) Info() []Message {
 }
 
 // servicePath keeps the path of a Location or link when it belongs to the
-// service (/redfish/...), "" otherwise: a service cannot send us elsewhere.
+// service (/redfish/...), "" otherwise: a service cannot send us elsewhere. The
+// bare "/redfish" is not under the service root, so it is no link to follow.
 func servicePath(loc string) string {
-	if strings.HasPrefix(loc, "/redfish/") || loc == "/redfish" {
+	if strings.HasPrefix(loc, "/redfish/") {
 		if strings.Contains(loc, "..") || strings.ContainsAny(loc, "\\\r\n") {
 			return ""
 		}
@@ -181,6 +182,9 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 		return nil, fmt.Errorf("redfish: method %q is not a Redfish method", req.Method)
 	}
 	p := servicePath(req.Path)
+	if req.Path == "/redfish" {
+		p = req.Path // the version document is a request path, never a link to follow
+	}
 	if p == "" || strings.HasPrefix(req.Path, "http") {
 		return nil, fmt.Errorf("%w: %q is not a path of this service (/redfish/...)", ErrMalformed, req.Path)
 	}
