@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -181,5 +182,101 @@ func TestReadSecretCapsWhatGrewAfterTheStat(t *testing.T) {
 	f.Seek(0, 0)
 	if b, err := readSecret(f, "session file", p, 100); err != nil || len(b) != 100 {
 		t.Errorf("a file exactly at the cap: %d %v", len(b), err)
+	}
+}
+
+// The mode refusal tells each file its own remedy.
+func TestSecretFileModeHints(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no Unix modes")
+	}
+	p := filepath.Join(t.TempDir(), "f")
+	if err := os.WriteFile(p, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for what, hint := range map[string]string{"session file": "log in again", "password file": "chmod 600"} {
+		f, err := openSecret(p, what, 100)
+		if f != nil {
+			f.Close()
+		}
+		if err == nil || !strings.Contains(err.Error(), hint) || !strings.Contains(err.Error(), "0644") {
+			t.Errorf("%s: %v; want a refusal that says %q", what, err, hint)
+		}
+	}
+}
+
+// An operating-system error about the password file keeps its prefix.
+func TestPasswordFileMissingNamesTheFile(t *testing.T) {
+	_, _, err := (filePassword{"u", filepath.Join(t.TempDir(), "absent")}).Get(context.Background())
+	if err == nil || !strings.HasPrefix(err.Error(), "password file: ") || !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("a missing password file: %v", err)
+	}
+}
+
+func TestOpenSecretClosesWhenTheStatFails(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "f")
+	if err := os.WriteFile(p, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	old := statOpen
+	defer func() { statOpen = old }()
+	var seen *os.File
+	boom := errors.New("boom")
+	statOpen = func(f *os.File) (os.FileInfo, error) { seen = f; return nil, boom }
+	f, err := openSecret(p, "session file", 100)
+	if f != nil || !errors.Is(err, boom) {
+		t.Fatalf("got %v, %v", f, err)
+	}
+	if _, err := seen.Stat(); err == nil {
+		t.Error("the descriptor was left open")
+	}
+}
+
+func TestReadSecretReportsAReadError(t *testing.T) {
+	dir, err := os.Open(t.TempDir()) // reading a directory fails
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dir.Close()
+	if b, err := readSecret(dir, "session file", "d", 10); err == nil {
+		t.Errorf("a read error was taken for %q", b)
+	}
+}
+
+// Whatever fails after the temporary file exists leaves nothing behind and the
+// destination as it was.
+func TestWriteSecretFailuresLeaveNothing(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "s.json")
+	if err := os.WriteFile(p, []byte("OLD"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	old := fillSecret
+	defer func() { fillSecret = old }()
+	boom := errors.New("disk full")
+	fillSecret = func(f *os.File, b []byte) error { f.Close(); return boom }
+	if err := writeSecret(p, []byte("NEW")); !errors.Is(err, boom) {
+		t.Errorf("the write failure was lost: %v", err)
+	}
+	fillSecret = old
+	// The rename fails when the destination is a non-empty directory.
+	d := filepath.Join(dir, "d")
+	if err := os.MkdirAll(filepath.Join(d, "x"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeSecret(d, []byte("NEW")); err == nil {
+		t.Error("a rename onto a directory succeeded")
+	}
+	// The temporary file cannot be created in a directory that is not there.
+	var pe *os.PathError
+	if err := writeSecret(filepath.Join(dir, "none", "s.json"), []byte("x")); !errors.As(err, &pe) || pe.Op != "open" {
+		t.Errorf("a missing directory: %v", err)
+	}
+	if b, _ := os.ReadFile(p); string(b) != "OLD" {
+		t.Errorf("the destination changed: %q", b)
+	}
+	es, _ := os.ReadDir(dir)
+	if len(es) != 2 { // s.json and d
+		t.Errorf("%d entries, want 2 (no temporary file left)", len(es))
 	}
 }

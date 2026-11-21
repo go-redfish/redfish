@@ -18,7 +18,7 @@ func openSecret(path, what string, max int64) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	st, err := f.Stat()
+	st, err := statOpen(f)
 	if err != nil {
 		f.Close()
 		return nil, err
@@ -36,6 +36,10 @@ func openSecret(path, what string, max int64) (*os.File, error) {
 	}
 	return f, nil
 }
+
+// statOpen is the Stat of the descriptor, a variable so that a test can make
+// it fail.
+var statOpen = (*os.File).Stat
 
 func unsafeModeHint(what string) string {
 	if what == "session file" {
@@ -63,26 +67,14 @@ func readSecret(f *os.File, what, path string, max int64) ([]byte, error) {
 // the destination itself (a symlink there is replaced, not followed).
 func writeSecret(p string, b []byte) error {
 	var rnd [12]byte
-	if _, err := rand.Read(rnd[:]); err != nil {
-		return err
-	}
+	_, _ = rand.Read(rnd[:]) // never fails: it ends the program if the system has no randomness
 	tmp := p + "." + hex.EncodeToString(rnd[:]) + ".tmp"
+	// 0600 is a ceiling the umask can only lower, so the file is never wider.
 	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL|oNoFollow, 0o600)
 	if err != nil {
 		return err
 	}
-	fail := func(err error) error {
-		f.Close()
-		os.Remove(tmp)
-		return err
-	}
-	if _, err := f.Write(b); err != nil {
-		return fail(err)
-	}
-	if err := f.Chmod(0o600); err != nil && !errors.Is(err, errors.ErrUnsupported) {
-		return fail(err)
-	}
-	if err := f.Close(); err != nil {
+	if err := fillSecret(f, b); err != nil {
 		os.Remove(tmp)
 		return err
 	}
@@ -91,4 +83,11 @@ func writeSecret(p string, b []byte) error {
 		return err
 	}
 	return nil
+}
+
+// fillSecret writes b to the temporary file and closes it, whatever the
+// write returned. A variable so that a test can make the disk fail.
+var fillSecret = func(f *os.File, b []byte) error {
+	_, werr := f.Write(b)
+	return errors.Join(werr, f.Close())
 }
