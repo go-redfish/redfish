@@ -55,7 +55,8 @@ redfish --endpoint https://127.0.0.1:PORT --user admin --password-file ~/.mock-p
         raw get /redfish/v1/Systems -o table
 redfish ... session login      # the token goes to a 0600 file under the config directory, never to the screen
 redfish --endpoint ... --ca-file ... --session raw get /redfish/v1/Chassis
-redfish ... session logout     # DELETE at the BMC, then the file is removed
+redfish ... session login --session-store keychain:redfish/bmc1   # the token goes to the Keychain, not to the file
+redfish ... session logout     # DELETE at the BMC, then the entry and the file are removed
 redfish ... raw patch /redfish/v1/Systems/1 --data '{"AssetTag":"rack-7"}' --if-match 'W/"..."'
 ```
 
@@ -82,7 +83,16 @@ redfish ... raw patch /redfish/v1/Systems/1 --data '{"AssetTag":"rack-7"}' --if-
   redfish --endpoint https://bmc.example --user admin --password-from systemd-creds:bmc-admin raw get /redfish/v1/
   ```
 
-  `session login` still keeps its token in a 0600 file; storing it through secretsource is not done.
+  **The session token in a secret manager.** `session login --session-store REF` (`keychain:SERVICE/ACCOUNT`,
+  `secretservice:SERVICE/ACCOUNT` or `keepassxc:URL`; `file:` and `systemd-creds:` cannot be written and are refused
+  before the BMC is contacted) stores the token under REF (a new login replaces it) and writes the 0600 session file
+  with the endpoint, the session URI and REF, **and no token**: it never touches the disk. The commands with
+  `--session` read it back from the manager (bounded, wiped after use, never printed). `session logout` ends the BMC
+  session, then deletes the entry and the file; they go even when the BMC call fails, and a failed delete is reported
+  after the file is removed. `session clear --session` does the same. A KeePassXC delete asks you to confirm and moves
+  the entry to the Recycle Bin. If the store fails after the login, the BMC session is closed and nothing is written.
+  Without the option, the token stays in the 0600 file as before, and old session files still load; a file holding
+  both a token and a reference is refused.
 
   **The BMC is not trusted with the terminal.** Everything it sends that reaches stdout or stderr (values, property
   names, error messages, a body that is not JSON, event text, the session location) has its control characters

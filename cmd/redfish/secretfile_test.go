@@ -117,7 +117,7 @@ func TestSecretFilesRefuseASymlink(t *testing.T) {
 	if err := os.Symlink(target, p); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := g.loadSession(); err == nil {
+	if _, err := g.loadSession(context.Background()); err == nil {
 		t.Error("a symlinked session file was read")
 	}
 }
@@ -152,14 +152,14 @@ func TestSessionFileIsBounded(t *testing.T) {
 	if err := os.WriteFile(p, []byte(doc), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := g.loadSession(); err == nil || !strings.Contains(err.Error(), "larger than") {
+	if _, err := g.loadSession(context.Background()); err == nil || !strings.Contains(err.Error(), "larger than") {
 		t.Errorf("an oversized session file: %v", err)
 	}
 	ok := `{"endpoint":"https://bmc.example","token":"t","uri":"/redfish/v1/S/1"}`
 	if err := os.WriteFile(p, []byte(ok), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if s, err := g.loadSession(); err != nil || s.Token != "t" {
+	if s, err := g.loadSession(context.Background()); err != nil || s.Token != "t" {
 		t.Errorf("a good session file: %v %v", s, err)
 	}
 }
