@@ -155,7 +155,14 @@ func (r *Response) Info() []Message {
 // bare "/redfish" is not under the service root, so it is no link to follow.
 func servicePath(loc string) string {
 	if strings.HasPrefix(loc, "/redfish/") {
-		if strings.Contains(loc, "..") || strings.ContainsAny(loc, "\\\r\n") {
+		if strings.ContainsAny(loc, "\\\r\n") {
+			return ""
+		}
+		p := loc
+		if i := strings.IndexAny(p, "?#"); i >= 0 {
+			p = p[:i]
+		}
+		if checkSegments(p) != nil {
 			return ""
 		}
 		return loc
