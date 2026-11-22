@@ -1,0 +1,5 @@
+go test fuzz v1
+string("GET")
+string("/redfish/v1/Systems")
+string("")
+bool(false)

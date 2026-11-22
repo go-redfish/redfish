@@ -77,6 +77,17 @@ jobs:
           - {target: FuzzReadPassword, pkg: ./cmd/redfish}
           - {target: FuzzPropFlags, pkg: ./cmd/redfish}
           - {target: FuzzRenderTable, pkg: ./cmd/redfish}
+          - {target: FuzzValidateURL, pkg: .}
+          - {target: FuzzRetryAfter, pkg: .}
+          - {target: FuzzParseCSR, pkg: .}
+          - {target: FuzzServicePath, pkg: .}
+          - {target: FuzzSessionPath, pkg: .}
+          - {target: FuzzLoadSession, pkg: ./cmd/redfish}
+          - {target: FuzzExecuteError, pkg: ./cmd/redfish}
+          - {target: FuzzPrintDoc, pkg: ./cmd/redfish}
+          - {target: FuzzPrintEvent, pkg: ./cmd/redfish}
+          - {target: FuzzSessionStatus, pkg: ./cmd/redfish}
+          - {target: FuzzHandler, pkg: ./mockbmc}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v5

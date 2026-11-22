@@ -1,0 +1,2 @@
+go test fuzz v1
+string("-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----\n")
