@@ -394,15 +394,32 @@ func sessionPath(loc string) (string, error) {
 			return "", fmt.Errorf("the session location %q holds a control or invalid character", loc)
 		}
 	}
-	for _, seg := range strings.Split(u.Path, "/") {
-		if seg == ".." || seg == "." {
-			return "", fmt.Errorf("the session location %q holds a %q segment", loc, seg)
-		}
+	if err := checkSegments(u.EscapedPath()); err != nil {
+		return "", fmt.Errorf("the session location %q: %v", loc, err)
 	}
 	if strings.ContainsAny(u.Path, "?#") { // an encoded one: it would be re-read as a query
 		return "", fmt.Errorf("the session location %q holds a query or fragment delimiter", loc)
 	}
 	return u.Path, nil
+}
+
+// checkSegments refuses an escaped path one of whose segments, once decoded, is
+// "." or "..", holds a "/" (an encoded %2f would be re-split by a proxy), or is a
+// malformed escape. It is the one rule of servicePath and sessionPath.
+func checkSegments(escaped string) error {
+	for _, seg := range strings.Split(escaped, "/") {
+		dec, err := url.PathUnescape(seg)
+		if err != nil {
+			return fmt.Errorf("a malformed escape in segment %q", seg)
+		}
+		switch {
+		case dec == "." || dec == "..":
+			return fmt.Errorf("a %q segment", dec)
+		case strings.Contains(dec, "/"):
+			return fmt.Errorf("an encoded slash in segment %q", seg)
+		}
+	}
+	return nil
 }
 
 // Close ends the session, if one was opened.
