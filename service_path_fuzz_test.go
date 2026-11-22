@@ -21,7 +21,7 @@ func FuzzServicePath(f *testing.F) {
 		if got == "" {
 			return
 		}
-		if !strings.HasPrefix(got, "/redfish/") || strings.ContainsAny(got, "\\\r\n") {
+		if !underServiceRoot(got) || strings.ContainsAny(got, "\\\r\n") {
 			t.Fatalf("servicePath(%q) = %q", loc, got)
 		}
 		p := got

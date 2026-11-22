@@ -200,7 +200,12 @@ func TestBuildVolumePayload(t *testing.T) {
 	if _, ok := p["Drives"]; ok || len(links) != 2 || links[1].(map[string]any)["@odata.id"] != "/redfish/v1/b" || p["Name"] != "n" {
 		t.Fatalf("payload = %v", p)
 	}
-	for _, bad := range [][]string{{"/etc/passwd"}, {"/redfish/../x"}, {}} {
+	// A drive is under the service root /redfish/v1 (fuzz-long run 45025309337 sent
+	// "/redfish/0.."): "0.." is a legal name there, no dot segment.
+	if q, err := redfish.BuildVolumePayload(redfish.Props{"RAIDType": "RAID1", "Name": "n"}, []string{"/redfish/v1/0.."}); err != nil || q["Links"] == nil {
+		t.Errorf("a drive named 0.. under the root: %v", err)
+	}
+	for _, bad := range [][]string{{"/etc/passwd"}, {"/redfish/../x"}, {"/redfish/0.."}, {"/redfish/"}, {"/redfish"}, {}} {
 		if _, err := redfish.BuildVolumePayload(redfish.Props{"RAIDType": "RAID0"}, bad); err == nil {
 			t.Fatalf("drives %v accepted", bad)
 		}

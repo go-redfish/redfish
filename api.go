@@ -150,11 +150,24 @@ func (r *Response) Info() []Message {
 	return info
 }
 
+// serviceRoot is the root of every resource (DSP0266 "Service root": /redfish/v1/).
+const serviceRoot = "/redfish/v1"
+
+// underServiceRoot is true for the root itself and for what is under it.
+func underServiceRoot(loc string) bool {
+	rest, ok := strings.CutPrefix(loc, serviceRoot)
+	if !ok {
+		return false
+	}
+	return rest == "" || rest[0] == '/' || rest[0] == '?' || rest[0] == '#'
+}
+
 // servicePath keeps the path of a Location or link when it belongs to the
-// service (/redfish/...), "" otherwise: a service cannot send us elsewhere. The
-// bare "/redfish" is not under the service root, so it is no link to follow.
+// service (/redfish/v1 and under it), "" otherwise: a service cannot send us
+// elsewhere. "/redfish" and "/redfish/" are the version document, not a resource
+// under the service root, so they are no link to follow.
 func servicePath(loc string) string {
-	if strings.HasPrefix(loc, "/redfish/") {
+	if underServiceRoot(loc) {
 		if strings.ContainsAny(loc, "\\\r\n") {
 			return ""
 		}
@@ -191,7 +204,7 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 		return nil, fmt.Errorf("redfish: method %q is not a Redfish method", req.Method)
 	}
 	p := servicePath(req.Path)
-	if req.Path == "/redfish" {
+	if req.Path == "/redfish" || req.Path == "/redfish/" {
 		p = req.Path // the version document is a request path, never a link to follow
 	}
 	if p == "" || strings.HasPrefix(req.Path, "http") {

@@ -1,6 +1,7 @@
 package redfish_test
 
 import (
+	"net/url"
 	"strings"
 	"testing"
 
@@ -61,7 +62,17 @@ func FuzzVolumeRequest(f *testing.F) {
 			}
 			for _, l := range links {
 				u, _ := l.(map[string]any)["@odata.id"].(string)
-				if !strings.HasPrefix(u, "/redfish/") || strings.Contains(u, "..") || strings.ContainsAny(u, "\r\n\\") {
+				// Under the service root, with no dot SEGMENT (a name like "0.." is
+				// one legal name: fuzz-long run 45025309337).
+				bad := !strings.HasPrefix(u, "/redfish/v1") || strings.ContainsAny(u, "\r\n\\")
+				p, _, _ := strings.Cut(u, "?")
+				p, _, _ = strings.Cut(p, "#")
+				for _, seg := range strings.Split(p, "/") {
+					if dec, err := url.PathUnescape(seg); err != nil || dec == "." || dec == ".." {
+						bad = true
+					}
+				}
+				if bad {
 					t.Fatalf("a drive outside the service: %q", u)
 				}
 			}
