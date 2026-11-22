@@ -64,7 +64,7 @@ func FuzzHandler(f *testing.F) {
 		if rec.Body.Len() > maxFuzzAnswer {
 			t.Fatalf("%s %q: %d bytes answered to a %d byte request", method, path, rec.Body.Len(), len(body))
 		}
-		if rec.Code == http.StatusUnauthorized && method != "HEAD" {
+		if rec.Code == http.StatusUnauthorized && req.Method != "HEAD" {
 			var e struct {
 				Error map[string]any `json:"error"`
 			}
@@ -74,8 +74,12 @@ func FuzzHandler(f *testing.F) {
 		}
 		if !auth && rec.Code < 400 {
 			p := strings.TrimRight(req.URL.Path, "/")
-			open := (method == "GET" && (p == "/redfish" || p == "/redfish/v1" || p == "/redfish/v1/$metadata" || p == "/redfish/v1/odata")) ||
-				(method == "POST" && p == "/redfish/v1/SessionService/Sessions") || (method == "HEAD" && p == "/redfish/v1")
+			m := method // net/http reads an empty Method as GET (http.Request)
+			if m == "" {
+				m = http.MethodGet
+			}
+			open := (m == "GET" && (p == "/redfish" || p == "/redfish/v1" || p == "/redfish/v1/$metadata" || p == "/redfish/v1/odata")) ||
+				(m == "POST" && p == "/redfish/v1/SessionService/Sessions") || (m == "HEAD" && p == "/redfish/v1")
 			if !open {
 				t.Fatalf("%s %q served without authentication: %d", method, path, rec.Code)
 			}

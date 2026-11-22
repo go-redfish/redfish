@@ -1,0 +1,65 @@
+name: fuzz-long
+
+# Long fuzzing on GitHub's runners (the maintainer's machine is too loaded to
+# fuzz locally). The target list is read from the source by
+# internal/fuzzmatrix, so a new Fuzz function is scheduled automatically.
+
+on:
+  workflow_dispatch:
+    inputs:
+      fuzztime:
+        description: Duration of each target (go test -fuzztime), e.g. 10m
+        default: 10m
+        required: false
+        type: string
+  schedule:
+    - cron: '17 3 * * 0'
+
+permissions:
+  contents: read
+
+jobs:
+  targets:
+    name: list fuzz targets
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      matrix: ${{ steps.list.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          check-latest: true
+      - name: list
+        id: list
+        run: |
+          go run ./internal/fuzzmatrix > matrix.json
+          echo "matrix=$(cat matrix.json)" >> "$GITHUB_OUTPUT"
+
+  fuzz:
+    name: fuzz ${{ matrix.target }}
+    needs: targets
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.targets.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          check-latest: true
+      - name: fuzz
+        env:
+          FUZZTIME: ${{ inputs.fuzztime || '10m' }}
+        run: go test -run='^$' -fuzz='^${{ matrix.target }}$' -fuzztime="$FUZZTIME" ${{ matrix.pkg }}
+      - name: upload findings
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-findings-${{ matrix.target }}
+          path: ${{ matrix.pkg }}/testdata/fuzz/${{ matrix.target }}/
+          if-no-files-found: warn
+          retention-days: 30
