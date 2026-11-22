@@ -47,7 +47,9 @@ func useFakeManager(t *testing.T) *fakeManager {
 	openSecretRef = func(_ context.Context, ref string) (opened, error) {
 		m.opens++
 		if m.openErr != nil {
-			return nil, m.openErr
+			// A non-nil secret beside the error: code that ignored the error
+			// would read an empty token, which a test then sees by assertion.
+			return fakeSecret{nil, m}, m.openErr
 		}
 		if m.openBytes != nil {
 			return fakeSecret{append([]byte(nil), m.openBytes...), m}, nil
