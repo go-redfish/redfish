@@ -22,7 +22,7 @@ import (
 // error never holds the secret, only the reference (which is not one).
 func refSecret[T any](ctx context.Context, flag, ref string, use func([]byte) (T, error)) (T, error) {
 	var zero T
-	s, err := secretsource.Open(ctx, ref)
+	s, err := openSecretRef(ctx, ref)
 	if err != nil {
 		if errors.Is(err, secretsource.ErrTooLarge) {
 			return zero, fmt.Errorf("--%s %s: the secret is larger than %d bytes, which a reference cannot carry: use the file or stdin option instead", flag, ref, secretsource.MaxSize)

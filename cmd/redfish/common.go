@@ -120,11 +120,33 @@ func (g *globals) sessionFile() (string, error) {
 
 type savedSession struct {
 	Endpoint string `json:"endpoint"`
-	Token    string `json:"token"`
+	Token    string `json:"token,omitempty"`
 	URI      string `json:"uri"`
+	// TokenRef names the secret-manager entry that holds the token
+	// (--session-store); Token is then empty.
+	TokenRef string `json:"token_ref,omitempty"`
 }
 
-func (g *globals) loadSession() (savedSession, error) {
+// loadSession reads the session file and, when it names a manager entry, the
+// token from it.
+func (g *globals) loadSession(ctx context.Context) (savedSession, error) {
+	s, err := g.readSessionFile()
+	if err != nil {
+		return savedSession{}, err
+	}
+	if s.TokenRef != "" {
+		tok, err := openToken(ctx, s.TokenRef)
+		if err != nil {
+			return savedSession{}, err
+		}
+		s.Token = tok
+	}
+	return s, nil
+}
+
+// readSessionFile reads the session file alone: a token, or the reference of
+// one, never both.
+func (g *globals) readSessionFile() (savedSession, error) {
 	p, err := g.sessionFile()
 	if err != nil {
 		return savedSession{}, err
@@ -142,7 +164,7 @@ func (g *globals) loadSession() (savedSession, error) {
 		return savedSession{}, err
 	}
 	var s savedSession
-	if json.Unmarshal(b, &s) != nil || s.Token == "" || s.Endpoint != g.endpoint {
+	if json.Unmarshal(b, &s) != nil || (s.Token == "") == (s.TokenRef == "") || s.Endpoint != g.endpoint {
 		return savedSession{}, fmt.Errorf("session file %s is not the session of %s: remove it and log in again", p, g.endpoint)
 	}
 	return s, nil
@@ -163,7 +185,7 @@ func (g *globals) client(cmd *cobra.Command, forSession bool) (*redfish.Client, 
 	cfg := redfish.Config{BaseURL: g.endpoint, CAFile: g.caFile, Timeout: g.timeout, HTTP: hc, NoExpand: g.noExpand}
 	switch {
 	case g.session && !forSession:
-		s, err := g.loadSession()
+		s, err := g.loadSession(cmd.Context())
 		if err != nil {
 			return nil, err
 		}

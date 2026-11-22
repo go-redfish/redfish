@@ -3,12 +3,13 @@ module github.com/go-redfish/redfish
 go 1.27.4
 
 require (
-	github.com/go-authn/secretsource v0.8.0
+	github.com/go-authn/secretsource v0.11.0
 	github.com/spf13/cobra v1.10.2
 )
 
 require (
 	github.com/ebitengine/purego v0.11.2 // indirect
+	github.com/go-authn/harden v0.2.0 // indirect
 	github.com/go-freedesktop/secretservice v0.4.0 // indirect
 	github.com/go-macos/keychain v0.3.1 // indirect
 	github.com/go-macos/objc v0.11.2 // indirect
