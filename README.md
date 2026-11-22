@@ -508,6 +508,18 @@ through the `Credentials` interface; no error carries a credential; a reading th
 not finite or out of range is dropped. Errors are typed (`ErrAuth`, `ErrNotFound`, `ErrTooLarge`,
 `ErrMalformed`, `ErrNoReading`, `ErrInsecure`, `*StatusError`). The JSON decoders are fuzzed.
 
+`Client.WaitTask` (and `WaitUpdate`) is bounded: when the caller's context has no deadline, `Config.TaskTimeout`
+ends the wait (default `DefaultTaskTimeout`, one hour, as the CLI's `--watch-timeout`; a negative value leaves only the
+context). The error then wraps `context.DeadlineExceeded`; a context with a deadline or a cancellation keeps its own error.
+
+Fuzz targets with a stated property, all in the CI fuzz-smoke matrix with committed seeds under `testdata/fuzz`:
+`FuzzValidateURL` (only https with a host, no credentials, query or fragment), `FuzzRetryAfter` (never negative, never
+above an hour), `FuzzParseCSR` (a request only, never the bytes of a private key block), `FuzzServicePath` and
+`FuzzSessionPath` (a path under `/redfish/` or nothing), `FuzzLoadSession` (CLI saved session: bounded, a token and the
+right endpoint), the CLI print paths (`FuzzExecuteError`, `FuzzPrintDoc`, `FuzzPrintEvent`, `FuzzSessionStatus`: no
+control byte reaches the terminal) and `FuzzHandler` (the mock BMC: no panic, a valid status, a bounded body, nothing
+served unauthenticated outside the open resources).
+
 ## From reads to energy: Meter
 
 `Meter` turns the successive reads of one BMC into the energy used between them:

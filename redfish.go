@@ -26,6 +26,9 @@ const (
 	MaxMembers = 64
 	// DefaultTimeout bounds a request when none is set.
 	DefaultTimeout = 10 * time.Second
+	// DefaultTaskTimeout bounds WaitTask when the context has no deadline; it is
+	// the CLI's --watch-timeout default.
+	DefaultTaskTimeout = time.Hour
 )
 
 // Typed errors, for errors.Is and errors.As.
@@ -112,6 +115,10 @@ type Config struct {
 	CAFile string
 	// Timeout bounds each request.
 	Timeout time.Duration
+	// TaskTimeout bounds WaitTask (and WaitUpdate) when the caller's context has
+	// no deadline of its own: 0 means DefaultTaskTimeout, a negative value means
+	// no bound but the context's cancellation.
+	TaskTimeout time.Duration
 	// HTTP overrides the transport (tests); its redirects are still refused.
 	HTTP *http.Client
 	// NoExpand forces the inventory and listing functions that read the members
@@ -150,7 +157,7 @@ func ValidateURL(raw string) error {
 		return fmt.Errorf("%w: %q: a host is required", ErrInsecure, raw)
 	case u.User != nil:
 		return fmt.Errorf("%w: %q: credentials in a URL are refused", ErrInsecure, u.Redacted())
-	case u.RawQuery != "" || u.Fragment != "" || u.ForceQuery:
+	case u.RawQuery != "" || u.Fragment != "" || u.ForceQuery || strings.Contains(raw, "#"):
 		return fmt.Errorf("%w: %q: query and fragment are not allowed", ErrInsecure, raw)
 	}
 	return nil

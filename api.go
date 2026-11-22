@@ -126,7 +126,9 @@ func (r *Response) RetryAfter() time.Duration {
 		return 0
 	}
 	if n, err := strconv.Atoi(v); err == nil && n >= 0 {
-		return min(time.Duration(n)*time.Second, time.Hour)
+		// Clamp the seconds before the multiplication: n*time.Second overflows int64
+		// above ~9.2e9 s and would wrap to a negative delay.
+		return time.Duration(min(n, int(time.Hour/time.Second))) * time.Second
 	}
 	if t, err := http.ParseTime(v); err == nil {
 		return max(0, min(time.Until(t), time.Hour))
@@ -295,11 +297,33 @@ func ParseTask(data []byte) (Task, error) {
 // WaitTask follows a task monitor until the task ends: it polls the monitor
 // (Retry-After, else every poll, never faster than 100 ms) while it answers 202,
 // calls onProgress with the Task each time, and returns the final response. The
-// context bounds the wait.
+// context bounds the wait; when the context has no deadline, Config.TaskTimeout
+// (default DefaultTaskTimeout, one hour; negative = unbounded) does, and the
+// error then wraps context.DeadlineExceeded. A context that has a deadline, or is
+// cancelled, keeps its own error.
 func (c *Client) WaitTask(ctx context.Context, monitor string, poll time.Duration, onProgress func(Task)) (*Response, error) {
 	if poll < 100*time.Millisecond {
 		poll = 100 * time.Millisecond
 	}
+	limit := c.cfg.TaskTimeout
+	if limit == 0 {
+		limit = DefaultTaskTimeout
+	}
+	if _, has := ctx.Deadline(); !has && limit > 0 {
+		parent := ctx
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(parent, limit)
+		defer cancel()
+		resp, err := c.waitTask(ctx, monitor, poll, onProgress)
+		if err != nil && parent.Err() == nil && ctx.Err() != nil {
+			return nil, fmt.Errorf("redfish: the task did not end within %s: %w", limit, context.DeadlineExceeded)
+		}
+		return resp, err
+	}
+	return c.waitTask(ctx, monitor, poll, onProgress)
+}
+
+func (c *Client) waitTask(ctx context.Context, monitor string, poll time.Duration, onProgress func(Task)) (*Response, error) {
 	for {
 		resp, err := c.Get(ctx, monitor)
 		if err != nil {
