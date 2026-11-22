@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -32,25 +33,54 @@ func readKey(r io.Reader) (redfish.Secret, error) {
 // (mode 0600) or the standard input, never a flag or the environment.
 type secretFlags struct {
 	keyFile, p12File, challengeFile string
+	keyFrom, p12From, challengeFrom string // secretsource references
 	keyStdin                        bool
+}
+
+// p12 reads the password of a PKCS12 certificate; none given: "".
+func (s *secretFlags) p12(ctx context.Context) (redfish.Secret, error) {
+	return fileOrRefSecret(ctx, s.p12File, "p12-password-file", s.p12From, "p12-password-from")
+}
+
+// challenge reads the challenge password of a request; none given: "".
+func (s *secretFlags) challenge(ctx context.Context) (redfish.Secret, error) {
+	return fileOrRefSecret(ctx, s.challengeFile, "challenge-password-file", s.challengeFrom, "challenge-password-from")
+}
+
+// fileOrRefSecret reads a one-line secret from a file or a reference, which
+// are exclusive; none given: "".
+func fileOrRefSecret(ctx context.Context, file, fileFlag, from, fromFlag string) (redfish.Secret, error) {
+	if err := exclusive(source{fileFlag, file != ""}, source{fromFlag, from != ""}); err != nil {
+		return "", err
+	}
+	if from != "" {
+		return refPassword(ctx, fromFlag, from)
+	}
+	return fileSecret(file)
 }
 
 func (s *secretFlags) addKey(cmd *cobra.Command) {
 	f := cmd.Flags()
+	f.StringVar(&s.keyFrom, "key-from", "", "reference of that private key instead of a file, e.g. systemd-creds:NAME; at most 4096 bytes, else use --key-file (exclusive with --key-file and --key-stdin)")
+	f.StringVar(&s.p12From, "p12-password-from", "", "reference of that password instead of a file (exclusive with --p12-password-file)")
 	f.StringVar(&s.keyFile, "key-file", "", "file holding the PEM private key of the certificate, for a service that does not know it (mode 0600)")
 	f.BoolVar(&s.keyStdin, "key-stdin", false, "read that private key from the standard input")
 	f.StringVar(&s.p12File, "p12-password-file", "", "file holding the password of a PKCS12 certificate (mode 0600)")
 }
 
 func (s *secretFlags) addChallenge(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&s.challengeFrom, "challenge-password-from", "", "reference of the challenge password instead of a file (exclusive with --challenge-password-file)")
 	cmd.Flags().StringVar(&s.challengeFile, "challenge-password-file", "", "file holding the challenge password of the request (mode 0600)")
 }
 
 // key reads the private key, "" when none is given.
 func (s *secretFlags) key(cmd *cobra.Command) (redfish.Secret, error) {
+	if err := exclusive(source{"key-file", s.keyFile != ""}, source{"key-from", s.keyFrom != ""}, source{"key-stdin", s.keyStdin}); err != nil {
+		return "", err
+	}
 	switch {
-	case s.keyFile != "" && s.keyStdin:
-		return "", errors.New("--key-file and --key-stdin are exclusive")
+	case s.keyFrom != "":
+		return refKey(cmd.Context(), "key-from", s.keyFrom)
 	case s.keyFile != "":
 		f, err := openSecretFile(s.keyFile)
 		if err != nil {
@@ -116,7 +146,7 @@ func certInput(cmd *cobra.Command, s *secretFlags, certFile, typ string) (redfis
 	if err != nil {
 		return redfish.CertificateInput{}, err
 	}
-	pw, err := fileSecret(s.p12File)
+	pw, err := s.p12(cmd.Context())
 	if err != nil {
 		return redfish.CertificateInput{}, err
 	}
@@ -175,10 +205,12 @@ a certificate to a collection, replace puts a certificate in place of another,
 delete removes one, rekey and renew make a CSR from an existing certificate.
 
 A certificate made from a CSR of the service needs no private key. For one that
-was not, the key is read from --key-file (mode 0600) or --key-stdin, checked
+was not, the key is read from --key-file (mode 0600), --key-from (a secretsource reference, at
+most 4096 bytes: a larger key goes through the file) or --key-stdin, checked
 against the certificate, sent as the schema asks (as part of the certificate
 string) and never printed: an error that holds it is redacted. Passwords come from
-files of mode 0600, never from a flag or the environment. A certificate is named by
+files of mode 0600 or from references (--p12-password-from,
+--challenge-password-from), never from a flag or the environment. A certificate is named by
 its Id (one of the CertificateLocations) or by its path.`,
 		Args: cobra.NoArgs,
 	}
@@ -299,7 +331,7 @@ printed on stderr.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			req := r
-			pw, err := fileSecret(s.challengeFile)
+			pw, err := s.challenge(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -443,7 +475,7 @@ func certsRekeyCmd(g *globals) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opt := o
-			pw, err := fileSecret(s.challengeFile)
+			pw, err := s.challenge(cmd.Context())
 			if err != nil {
 				return err
 			}
@@ -476,7 +508,7 @@ func certsRenewCmd(g *globals) *cobra.Command {
 		Short: "Make a CSR from the existing information and key pair of a certificate (Certificate.Renew)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pw, err := fileSecret(s.challengeFile)
+			pw, err := s.challenge(cmd.Context())
 			if err != nil {
 				return err
 			}

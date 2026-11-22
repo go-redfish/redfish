@@ -142,7 +142,7 @@ decides which resource holds them: a system or a manager.`,
 	})
 	var o redfish.VirtualMediaOptions
 	var inserted, writeProtected bool
-	var pwFile string
+	var pwFile, pwFrom string
 	ins := &cobra.Command{
 		Use:   "insert --image URL",
 		Short: "Insert an image in a free slot (VirtualMediaInsert)",
@@ -150,14 +150,14 @@ decides which resource holds them: a system or a manager.`,
 --media-type values (else the first free slot), with the InsertMedia action when
 the slot has it, else by a PATCH. Nothing is done when the image is already
 inserted. The password to fetch the image is read from --image-password-file
-(mode 0600), never given on the command line.`,
+(mode 0600) or given by reference (--image-password-from), never given on the command line.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opt := o
 			opt.Inserted = &inserted // the flags default to true, the module's defaults
 			opt.WriteProtected = &writeProtected
-			if pwFile != "" {
-				_, pw, err := filePassword{path: pwFile}.Get(cmd.Context())
+			if pwFile != "" || pwFrom != "" {
+				_, pw, err := fileOrRefPassword(cmd.Context(), "", pwFile, "image-password-file", pwFrom, "image-password-from")
 				if err != nil {
 					return err
 				}
@@ -175,6 +175,7 @@ inserted. The password to fetch the image is read from --image-password-file
 	f.BoolVar(&writeProtected, "write-protected", true, "treat the media as write-protected")
 	f.StringVar(&o.Username, "image-username", "", "the user name to fetch the image")
 	f.StringVar(&pwFile, "image-password-file", "", "file holding the password to fetch the image (mode 0600)")
+	f.StringVar(&pwFrom, "image-password-from", "", "reference of that password instead of a file, e.g. systemd-creds:image-pw (exclusive with --image-password-file)")
 	f.StringVar(&o.TransferProtocolType, "transfer-protocol", "", "the protocol to fetch the image: HTTP, HTTPS, NFS...")
 	f.StringVar(&o.TransferMethod, "transfer-method", "", "the transfer method: Stream, Upload...")
 	_ = ins.MarkFlagRequired("image")

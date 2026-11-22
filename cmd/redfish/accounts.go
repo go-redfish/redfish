@@ -41,19 +41,33 @@ func readPassword(r io.Reader) (redfish.Secret, error) {
 // as --password-file) or the standard input; never a flag or the environment.
 type newPassword struct {
 	file  string
+	from  string // a secretsource reference
 	stdin bool
+	flag  string // the prefix of the options: "new" (default) or "image"
+}
+
+func (n *newPassword) prefix() string {
+	if n.flag == "" {
+		return "new"
+	}
+	return n.flag
 }
 
 func (n *newPassword) add(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&n.from, "new-password-from", "", "reference of the account's password instead of a file, e.g. systemd-creds:NAME (exclusive with the file and stdin options)")
 	cmd.Flags().StringVar(&n.file, "new-password-file", "", "file holding the account's password (mode 0600)")
 	cmd.Flags().BoolVar(&n.stdin, "new-password-stdin", false, "read the account's password from the standard input (one line)")
 }
 
 // secret reads the password; with required false, "none given" is an empty one.
 func (n *newPassword) secret(cmd *cobra.Command, required bool) (redfish.Secret, error) {
+	p := n.prefix()
+	if err := exclusive(source{p + "-password-file", n.file != ""}, source{p + "-password-from", n.from != ""}, source{p + "-password-stdin", n.stdin}); err != nil {
+		return "", err
+	}
 	switch {
-	case n.file != "" && n.stdin:
-		return "", errors.New("--new-password-file and --new-password-stdin are exclusive")
+	case n.from != "":
+		return refPassword(cmd.Context(), p+"-password-from", n.from)
 	case n.file != "":
 		f, err := openSecretFile(n.file)
 		if err != nil {
@@ -68,7 +82,7 @@ func (n *newPassword) secret(cmd *cobra.Command, required bool) (redfish.Secret,
 	case n.stdin:
 		return readPassword(cmd.InOrStdin())
 	case required:
-		return "", errors.New("the password is required: --new-password-file FILE (mode 0600) or --new-password-stdin")
+		return "", errors.New("the password is required: --new-password-file FILE (mode 0600), --new-password-from REF or --new-password-stdin")
 	}
 	return "", nil
 }

@@ -74,8 +74,8 @@ status (GetUpdateStatus), operations (PerformRequestedOperations), inventory
 
 simple and push start a task: the task monitor is printed on stderr and in
 update_status.handle and not awaited (redfishtool's -N); --watch follows it.
-The password of the image server comes from --image-password-file (mode 0600)
-or --image-password-stdin, never from a flag or the environment, and is never
+The password of the image server comes from --image-password-file (mode 0600),
+--image-password-from (a reference) or --image-password-stdin, never from a flag or the environment, and is never
 printed.`,
 		Args: cobra.NoArgs,
 	}
@@ -85,7 +85,7 @@ printed.`,
 
 func updateSimpleCmd(g *globals) *cobra.Command {
 	var o redfish.SimpleUpdateOptions
-	var pwFile string
+	var pwFile, pwFrom string
 	var pwStdin bool
 	var w watchFlags
 	cmd := &cobra.Command{
@@ -94,11 +94,12 @@ func updateSimpleCmd(g *globals) *cobra.Command {
 		Long: `simple posts the UpdateService.SimpleUpdate action. The transfer protocol and
 the targets are checked against the service's allowable values, and the scheme
 of the image URI must be one of its transfer protocols; a URI that holds a
-password is refused (use --image-username and --image-password-file).`,
+password is refused (use --image-username and --image-password-file, or
+--image-password-from for a reference).`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opt := o
-			pw, err := imagePassword(cmd, pwFile, pwStdin)
+			pw, err := imagePassword(cmd, pwFile, pwFrom, pwStdin)
 			if err != nil {
 				return err
 			}
@@ -120,6 +121,7 @@ password is refused (use --image-username and --image-password-file).`,
 	f.StringArrayVar(&o.Targets, "target", nil, "a resource to update (repeatable)")
 	f.StringVar(&o.Username, "image-username", "", "the user name on the image server")
 	f.StringVar(&pwFile, "image-password-file", "", "file holding the password on the image server (mode 0600)")
+	f.StringVar(&pwFrom, "image-password-from", "", "reference of the password on the image server instead of a file, e.g. systemd-creds:NAME (exclusive with the file and stdin options)")
 	f.BoolVar(&pwStdin, "image-password-stdin", false, "read the password on the image server from the standard input (one line)")
 	f.StringVar(&o.ApplyTime, "apply-time", "", "when to apply: Immediate, OnReset...")
 	w.add(cmd)
@@ -128,11 +130,8 @@ password is refused (use --image-username and --image-password-file).`,
 }
 
 // imagePassword reads the password of the image server (none given: empty).
-func imagePassword(cmd *cobra.Command, file string, stdin bool) (redfish.Secret, error) {
-	if file != "" && stdin {
-		return "", errors.New("--image-password-file and --image-password-stdin are exclusive")
-	}
-	return (&newPassword{file: file, stdin: stdin}).secret(cmd, false)
+func imagePassword(cmd *cobra.Command, file, from string, stdin bool) (redfish.Secret, error) {
+	return (&newPassword{file: file, from: from, stdin: stdin, flag: "image"}).secret(cmd, false)
 }
 
 func updatePushCmd(g *globals) *cobra.Command {

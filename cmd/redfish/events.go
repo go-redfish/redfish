@@ -122,7 +122,7 @@ func eventsSubscriptionsCmd(g *globals) *cobra.Command {
 
 func eventsSubscribeCmd(g *globals) *cobra.Command {
 	var o redfish.SubscribeOptions
-	var format, headersFile string
+	var format, headersFile, headersRef string
 	var headersStdin, subordinate bool
 	cmd := &cobra.Command{
 		Use:   "subscribe --destination URL",
@@ -134,7 +134,7 @@ or fragment. The filters (--registry-prefix, --resource-type, --message-id,
 is sent.
 
 The HTTP headers the service sends with every event (an Authorization for the
-receiver) are credentials: they come from --headers-file (mode 0600) or
+receiver) are credentials: they come from --headers-file (mode 0600), --headers-from (a reference) or
 --headers-stdin, one "Name: value" per line, never from a flag, and are never
 printed. --context is stored by the service and returned in every event: it is
 not a secret.`,
@@ -145,7 +145,7 @@ not a secret.`,
 			if cmd.Flags().Changed("subordinate") {
 				opt.SubordinateResources = &subordinate
 			}
-			hdrs, err := headersFrom(cmd, headersFile, headersStdin)
+			hdrs, err := headersFrom(cmd, headersFile, headersRef, headersStdin)
 			if err != nil {
 				return err
 			}
@@ -173,6 +173,7 @@ not a secret.`,
 	f.StringArrayVar(&o.OriginResources, "origin", nil, "send only events about this resource, a path (repeatable)")
 	f.BoolVar(&subordinate, "subordinate", false, "with --origin: include the resources below it")
 	f.StringVar(&headersFile, "headers-file", "", "file of the HTTP headers the service sends with every event, Name: value per line (mode 0600)")
+	f.StringVar(&headersRef, "headers-from", "", "reference of those headers instead of a file, e.g. systemd-creds:NAME; at most 4096 bytes (exclusive with the file and stdin options)")
 	f.BoolVar(&headersStdin, "headers-stdin", false, "read those headers from the standard input")
 	_ = cmd.MarkFlagRequired("destination")
 	return cmd
@@ -180,10 +181,13 @@ not a secret.`,
 
 // headersFrom reads the headers from the file or the standard input; none given:
 // nil.
-func headersFrom(cmd *cobra.Command, file string, stdin bool) (map[string]redfish.Secret, error) {
+func headersFrom(cmd *cobra.Command, file, from string, stdin bool) (map[string]redfish.Secret, error) {
+	if err := exclusive(source{"headers-file", file != ""}, source{"headers-from", from != ""}, source{"headers-stdin", stdin}); err != nil {
+		return nil, err
+	}
 	switch {
-	case file != "" && stdin:
-		return nil, errors.New("--headers-file and --headers-stdin are exclusive")
+	case from != "":
+		return refHeaders(cmd.Context(), "headers-from", from)
 	case file != "":
 		f, err := openSecretFile(file)
 		if err != nil {
