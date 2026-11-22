@@ -447,6 +447,43 @@ func FuzzParseSecurityPolicy(f *testing.F) {
 	})
 }
 
+// outStrings are the strings held by a decoded JSON value.
+func outStrings(v any) []string {
+	switch x := v.(type) {
+	case string:
+		return []string{x}
+	case []any:
+		var out []string
+		for _, e := range x {
+			out = append(out, outStrings(e)...)
+		}
+		return out
+	}
+	return nil
+}
+
+// The key, copied by the service into other strings, is in none of them (fuzz-long
+// run 45025309337); a bare format tag is no secret and is kept.
+func TestParseNVMeoFSecretRedactsACopyOfTheKey(t *testing.T) {
+	uri := "/redfish/v1/KeyService/NVMeoFSecrets/0"
+	k, err := redfish.ParseNVMeoFSecret(uri, []byte(`{"Id":"0","Name":"x00:SECRETPART:x","KeyString":"DHHC-1:00:SECRETPART:",
+	 "NVMeoF":{"NQN":"nqn.00:SECRETPART:","SecureHashAllowList":["SHA384","a00:SECRETPART:b"]}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	j, _ := json.Marshal(k)
+	if strings.Contains(string(j), "SECRETPART") {
+		t.Errorf("the key is in %s", j)
+	}
+	if !k.KeyPresent || k.SecureHashAllowList[0] != "SHA384" || len(k.SecureHashAllowList) != 2 {
+		t.Errorf("a wrong redaction: %+v", k)
+	}
+	b, err := redfish.ParseNVMeoFSecret(uri, []byte(`{"KeyString":"DHHC-1:","NVMeoF":{"SecureHashAllowList":["DHHC-1:"]}}`))
+	if err != nil || len(b.SecureHashAllowList) != 1 || b.SecureHashAllowList[0] != "DHHC-1:" {
+		t.Errorf("the bare tag is not a secret: %+v %v", b, err)
+	}
+}
+
 func FuzzParseKeyResources(f *testing.F) {
 	f.Add([]byte(`{"Id":"0","KeyType":"NVMeoF","KeyString":"DHHC-1:00:SECRETSECRET:","NVMeoF":{"NQN":"nqn.x","SecurityProtocolType":"DHHC","SecureHashAllowList":["SHA384",1]}}`))
 	f.Add([]byte(`{"Id":"0","KeyPolicyType":"NVMeoF","IsDefault":"yes","NVMeoF":{"CipherSuiteAllowList":["A",null],"DHGroupAllowList":5}}`))
@@ -456,23 +493,28 @@ func FuzzParseKeyResources(f *testing.F) {
 		if k, err := redfish.ParseNVMeoFSecret("/redfish/v1/KeyService/NVMeoFSecrets/0", data); err == nil {
 			var in map[string]any
 			if json.Unmarshal(data, &in) == nil {
-				// Keys of the NVMe-oF formats (DHHC-1:...) or marked ones: a shorter text
-				// could be, by chance, the name of a field of the output.
-				if s, _ := in["KeyString"].(string); strings.HasPrefix(s, "DHHC-1:") || strings.HasPrefix(s, "SECRET") {
-					j, _ := json.Marshal(k)
-					// The key is in no field, unless the service sent the same text as
-					// another property (which is then that property).
-					other := false
-					for kk, v := range in {
-						if vs, ok := v.(string); ok && kk != "KeyString" && vs == s {
-							other = true
-						}
-					}
-					if !other && strings.Contains(string(j), s) {
-						t.Fatalf("the key is in %s", j)
-					}
+				// The secret part is what follows the public format tag "DHHC-1:" (a
+				// bare tag is no secret); a text shorter than 8 bytes could be, by
+				// chance, a value the parser itself writes (an ID, a type).
+				if s, _ := in["KeyString"].(string); s != "" {
 					if !k.KeyPresent {
 						t.Fatalf("a key was sent and KeyPresent is false")
+					}
+					secret := strings.TrimPrefix(s, "DHHC-1:")
+					if len(secret) >= 8 {
+						// No string of the output holds it, not even one the service
+						// copied from the key (the URI is the caller's own).
+						k.URI = ""
+						j, _ := json.Marshal(k)
+						var out map[string]any
+						_ = json.Unmarshal(j, &out)
+						for name, v := range out {
+							for _, vs := range outStrings(v) {
+								if strings.Contains(vs, secret) {
+									t.Fatalf("the key is in %s: %q", name, vs)
+								}
+							}
+						}
 					}
 				}
 			}

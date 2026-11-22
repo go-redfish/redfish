@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"uri\":\"/redfish/v1/KeyService/NVMeoFSecrets/0\",\"id\":\"0\",\"key_present\":true,\"secure_hash_allow_list\":[\"DHHC-1:\"]}")

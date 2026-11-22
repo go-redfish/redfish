@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"KeyString\":\"DHHC-1:00:ia6zGodOr4SEG0Zzaw398rpY0wqipUWj4jWjUh4HWUz6aQ2n:\",\"NVMeoF\":{\"NQN\":\"x00:ia6zGodOr4SEG0Zzaw398rpY0wqipUWj4jWjUh4HWUz6aQ2n:\",\"SecureHashAllowList\":[\"SHA384\",\"DHHC-1:00:ia6zGodOr4SEG0Zzaw398rpY0wqipUWj4jWjUh4HWUz6aQ2n:\"]}}")

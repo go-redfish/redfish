@@ -950,13 +950,44 @@ func ParseNVMeoFSecret(uri string, data []byte) (NVMeoFSecret, error) {
 
 func parseNVMeoFSecret(uri string, p Props) NVMeoFSecret {
 	n := sub(p, "NVMeoF")
-	k := NVMeoFSecret{URI: uri, ID: strSec(p, "Id"), Name: strSec(p, "Name"), KeyType: strSec(p, "KeyType"), UserDescription: strSec(p, "UserDescription"),
-		KeyPresent: str(p, "KeyString") != "", NQN: strSec(n, "NQN"), HostKeyID: strSec(n, "HostKeyId"),
-		SecurityProtocolType: strSec(n, "SecurityProtocolType"), OEMSecurityProtocol: strSec(n, "OEMSecurityProtocolType"), SecureHashAllowList: strs(n["SecureHashAllowList"])}
+	secret := keySecretPart(str(p, "KeyString"))
+	// A hostile service can copy the key into any other string it sends: no
+	// output string keeps it (defence in depth; the key is never an output).
+	ss := func(m Props, key string) string { return clipSec(scrubSecret(str(m, key), secret)) }
+	var hashes []string
+	if l, ok := n["SecureHashAllowList"].([]any); ok {
+		scrubbed := make([]any, len(l))
+		for i, x := range l {
+			if s, ok := x.(string); ok {
+				x = scrubSecret(s, secret)
+			}
+			scrubbed[i] = x
+		}
+		hashes = strs(scrubbed)
+	}
+	k := NVMeoFSecret{URI: uri, ID: ss(p, "Id"), Name: ss(p, "Name"), KeyType: ss(p, "KeyType"), UserDescription: ss(p, "UserDescription"),
+		KeyPresent: str(p, "KeyString") != "", NQN: ss(n, "NQN"), HostKeyID: ss(n, "HostKeyId"),
+		SecurityProtocolType: ss(n, "SecurityProtocolType"), OEMSecurityProtocol: ss(n, "OEMSecurityProtocolType"), SecureHashAllowList: hashes}
 	if k.ID == "" {
 		k.ID = path.Base(uri)
 	}
 	return k
+}
+
+// dhchapPrefix is the format tag of a DH-HMAC-CHAP secret ("DHHC-1:", the NVMe
+// base specification): public, it is not key material.
+const dhchapPrefix = "DHHC-1:"
+
+// keySecretPart is the part of a KeyString that is secret: the text after the
+// format tag.
+func keySecretPart(key string) string { return strings.TrimPrefix(key, dhchapPrefix) }
+
+// scrubSecret is s, or "[redacted]" when it contains the secret part of the key.
+func scrubSecret(s, secret string) string {
+	if secret != "" && strings.Contains(s, secret) {
+		return "[redacted]"
+	}
+	return s
 }
 
 // KeyPolicy is a KeyPolicy resource (1.0.1), NVMe-oF type.
