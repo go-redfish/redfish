@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -49,6 +51,57 @@ func (T) FuzzMethod(f *testing.F) {}
 		if got[i] != want[i] {
 			t.Fatalf("got %v, want %v", got, want)
 		}
+	}
+}
+
+func TestTargetsAreSortedByPackageThenName(t *testing.T) {
+	dir := t.TempDir()
+	// The walk visits sub/ before z_test.go and a_test.go before b_test.go.
+	write(t, dir, "z_test.go", "package a\nimport \"testing\"\nfunc FuzzRoot(f *testing.F) {}\n")
+	write(t, dir, "sub/a_test.go", "package b\nimport \"testing\"\nfunc FuzzZ(f *testing.F) {}\n")
+	write(t, dir, "sub/b_test.go", "package b\nimport \"testing\"\nfunc FuzzA(f *testing.F) {}\n")
+	got, err := Targets(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Target{{"FuzzRoot", "."}, {"FuzzA", "./sub"}, {"FuzzZ", "./sub"}}
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("got %v, want %v", got, want)
+		}
+	}
+}
+
+func TestTargetsRejectsNonPointerParameter(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, "a_test.go", "package a\nimport \"testing\"\nfunc FuzzVal(f testing.F) {}\nfunc FuzzNoSel(f *F) {}\n")
+	got, err := Targets(dir)
+	if err != nil || len(got) != 0 {
+		t.Fatalf("got %v, %v; want nothing", got, err)
+	}
+}
+
+func TestTargetsReportsUnreadableInput(t *testing.T) {
+	if _, err := Targets(filepath.Join(t.TempDir(), "missing")); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("a missing root must be fs.ErrNotExist, got %v", err)
+	}
+	err := run(filepath.Join(t.TempDir(), "missing"), &bytes.Buffer{})
+	if !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("run must pass the walk error on, got %v", err)
+	}
+	link := t.TempDir()
+	if os.Symlink(filepath.Join(link, "nowhere"), filepath.Join(link, "dangling_test.go")) == nil {
+		if _, err := Targets(link); !errors.Is(err, fs.ErrNotExist) {
+			t.Errorf("an unreadable test file must be an error, got %v", err)
+		}
+	}
+	dir := t.TempDir()
+	write(t, dir, "bad_test.go", "package a\nfunc (")
+	if _, err := Targets(dir); err == nil {
+		t.Error("a file that does not parse must be an error")
 	}
 }
 

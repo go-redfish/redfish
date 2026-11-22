@@ -15,7 +15,6 @@ import (
 	"io/fs"
 	"os"
 	"path"
-	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -30,13 +29,14 @@ type Target struct {
 // package then name. Pkg is "." or "./sub/dir", as `go test` expects it.
 func Targets(root string) ([]Target, error) {
 	var out []Target
-	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+	fsys := os.DirFS(root)
+	err := fs.WalkDir(fsys, ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
 			n := d.Name()
-			if p != root && (n == "testdata" || n == ".git" || strings.HasPrefix(n, "_")) {
+			if p != "." && (n == "testdata" || n == ".git" || strings.HasPrefix(n, "_")) {
 				return fs.SkipDir
 			}
 			return nil
@@ -44,17 +44,17 @@ func Targets(root string) ([]Target, error) {
 		if !strings.HasSuffix(p, "_test.go") {
 			return nil
 		}
-		file, err := parser.ParseFile(token.NewFileSet(), p, nil, 0)
+		src, err := fs.ReadFile(fsys, p)
 		if err != nil {
 			return err
 		}
-		rel, err := filepath.Rel(root, filepath.Dir(p))
+		file, err := parser.ParseFile(token.NewFileSet(), p, src, 0)
 		if err != nil {
 			return err
 		}
 		pkg := "."
-		if rel != "." {
-			pkg = "./" + path.Clean(filepath.ToSlash(rel))
+		if dir := path.Dir(p); dir != "." {
+			pkg = "./" + dir
 		}
 		for _, decl := range file.Decls {
 			fn, ok := decl.(*ast.FuncDecl)
