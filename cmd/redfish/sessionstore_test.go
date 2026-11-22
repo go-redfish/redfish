@@ -160,6 +160,12 @@ func TestSessionStoreRefusedBeforeTheBMC(t *testing.T) {
 	if _, err := os.Stat(mustSessionFile(t, e)); !os.IsNotExist(err) {
 		t.Errorf("a file was written: %v", err)
 	}
+	if err := checkStoreRef("nonsense"); !errors.Is(err, secretsource.ErrBadRef) {
+		t.Errorf("a malformed reference is a bad reference: %v", err)
+	}
+	if err := checkStoreRef("file:/tmp/x"); errors.Is(err, secretsource.ErrBadRef) || err == nil {
+		t.Errorf("file: parses but is refused: %v", err)
+	}
 	for _, ok := range []string{"keychain:svc/acct", "secretservice:svc/acct", "keepassxc:https://bmc.example"} {
 		if err := checkStoreRef(ok); err != nil {
 			t.Errorf("%s: %v", ok, err)
@@ -181,6 +187,53 @@ func TestSessionStoreFailureClosesTheBMCSession(t *testing.T) {
 	}
 	if _, err := os.Stat(mustSessionFile(t, e)); !os.IsNotExist(err) {
 		t.Errorf("a file was written: %v", err)
+	}
+}
+
+// When the store fails and the BMC session cannot be ended either, both are
+// said: the session is named so the person can end it.
+func TestSessionStoreFailureAndCloseFailure(t *testing.T) {
+	m := useFakeManager(t)
+	e := newEnv(t)
+	storeSecretRef = func(context.Context, string, []byte, secretsource.StoreOptions) error {
+		e.ok("session", "clear") // the session is gone: Close will fail
+		return secretsource.ErrDenied
+	}
+	_, _, err := e.run("session", "login", "--session-store", testRef)
+	if err == nil || !errors.Is(err, secretsource.ErrDenied) || !strings.Contains(err.Error(), "could not be ended either") {
+		t.Errorf("store and close failures: %v", err)
+	}
+	if len(m.entries) != 0 {
+		t.Errorf("entries %v", m.entries)
+	}
+}
+
+func TestSessionStoreDeleteFailureWithUnreadableToken(t *testing.T) {
+	m := useFakeManager(t)
+	e := newEnv(t)
+	sess := []string{"--endpoint", e.srv.URL, "--ca-file", e.ca, "--session"}
+	e.ok("session", "login", "--session-store", testRef)
+	m.openErr, m.delErr = secretsource.ErrUnavailable, secretsource.ErrDenied
+	_, _, err := run(t, append(sess, "session", "logout")...)
+	if err == nil || !errors.Is(err, secretsource.ErrUnavailable) || !strings.Contains(err.Error(), "was not deleted") {
+		t.Errorf("both failures must be said: %v", err)
+	}
+	if _, err := os.Stat(mustSessionFile(t, e)); !os.IsNotExist(err) {
+		t.Errorf("the file stays: %v", err)
+	}
+}
+
+func TestSessionStoreClearReportsDeleteFailure(t *testing.T) {
+	m := useFakeManager(t)
+	e := newEnv(t)
+	e.ok("session", "login", "--session-store", testRef)
+	m.delErr = secretsource.ErrDenied
+	_, _, err := run(t, "--endpoint", e.srv.URL, "--ca-file", e.ca, "--session", "session", "clear")
+	if err == nil || !errors.Is(err, secretsource.ErrDenied) {
+		t.Errorf("clear with a failing Delete: %v", err)
+	}
+	if _, err := os.Stat(mustSessionFile(t, e)); !os.IsNotExist(err) {
+		t.Errorf("the file stays: %v", err)
 	}
 }
 
@@ -319,6 +372,9 @@ func TestSessionFileShapes(t *testing.T) {
 		mustBeClean(t, name, err.Error())
 		if c.err != nil && !errors.Is(err, c.err) && name != "toolarge" {
 			t.Errorf("%s: the cause is lost: %v", name, err)
+		}
+		if name == "toolarge" && !strings.Contains(err.Error(), "larger than") {
+			t.Errorf("toolarge: %v", err)
 		}
 		if strings.Contains(err.Error(), "X-Evil") {
 			t.Errorf("%s: the secret is in the error: %v", name, err)
