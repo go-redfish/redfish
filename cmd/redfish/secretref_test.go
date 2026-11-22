@@ -92,6 +92,9 @@ func TestPasswordFromSystemdCreds(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "bmc-admin"), []byte("password\n"), 0o400); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.Chmod(dir, 0o700); err != nil { // the library refuses a directory others can read
+		t.Fatal(err)
+	}
 	t.Setenv("CREDENTIALS_DIRECTORY", dir)
 	out, _, err := run(t, append(e.refArgs("systemd-creds:bmc-admin"), "raw", "get", "/redfish/v1/")...)
 	if err != nil || !strings.Contains(out, "RedfishVersion") {
