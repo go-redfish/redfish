@@ -69,6 +69,10 @@ func TestPasswordFromExclusive(t *testing.T) {
 	if _, _, err := run(t, args...); err == nil || !strings.Contains(err.Error(), "--password-file and --password-from are exclusive") {
 		t.Errorf("both: %v", err)
 	}
+	// A reference that does not parse is refused before any request.
+	if _, _, err := run(t, append(e.refArgs("no-scheme-here"), "raw", "get", "/redfish/v1/")...); err == nil || !strings.HasPrefix(err.Error(), "--password-from: secretsource:") {
+		t.Errorf("unparsable ref: %v", err)
+	}
 	// The old flag alone still works, and nothing at all is asked for.
 	if _, _, err := e.run("raw", "get", "/redfish/v1/"); err != nil {
 		t.Errorf("--password-file: %v", err)
@@ -101,6 +105,10 @@ func TestAccountNewPasswordFrom(t *testing.T) {
 	out := e.ok("accounts", "add", "bob", "--role", "ReadOnly", "--new-password-from", "file:"+p)
 	if !strings.Contains(out, `"changed": true`) {
 		t.Errorf("add: %q", out)
+	}
+	_, _, err := e.run("accounts", "add", "x", "--new-password-from", "file:"+p, "--new-password-file", p)
+	if err == nil || err.Error() != "--new-password-file and --new-password-from are exclusive" {
+		t.Errorf("new exclusive message: %v", err)
 	}
 	for _, args := range [][]string{
 		{"accounts", "add", "x", "--new-password-from", "file:" + p, "--new-password-file", p},
@@ -138,6 +146,10 @@ func TestRefSecretsDirect(t *testing.T) {
 	s = secretFlags{keyFrom: w("big", big, 0o600)}
 	if _, err := s.key(cmd); err == nil || !strings.Contains(err.Error(), "larger than 4096 bytes") || !strings.Contains(err.Error(), "file or stdin") || strings.Contains(err.Error(), "AAAA") {
 		t.Errorf("oversize key: %v", err)
+	}
+	s = secretFlags{keyFrom: w("blank", "  \t \n \n", 0o600)}
+	if k, err := s.key(cmd); err == nil || k != "" {
+		t.Errorf("blank key: %v", err)
 	}
 	s = secretFlags{keyFrom: w("empty", "", 0o600)}
 	if _, err := s.key(cmd); err == nil {
