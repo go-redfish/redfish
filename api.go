@@ -155,10 +155,10 @@ const serviceRoot = "/redfish/v1"
 
 // underServiceRoot is true for the root itself and for what is under it.
 func underServiceRoot(loc string) bool {
-	if !strings.HasPrefix(loc, serviceRoot) {
+	rest, ok := strings.CutPrefix(loc, serviceRoot)
+	if !ok {
 		return false
 	}
-	rest := loc[len(serviceRoot):]
 	return rest == "" || rest[0] == '/' || rest[0] == '?' || rest[0] == '#'
 }
 
