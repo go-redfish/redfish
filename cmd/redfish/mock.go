@@ -26,27 +26,27 @@ func mockCmd(g *globals) *cobra.Command {
 	cmd := &cobra.Command{Use: "mock", Short: "A mock BMC to try the client against", Args: cobra.NoArgs}
 	var listen, caOut string
 	var o mockbmc.Options
-	var pwFile string
+	var pwFile, pwFrom string
 	var telemetryEvery time.Duration
 	serve := &cobra.Command{
 		Use:   "serve",
 		Short: "Serve a DMTF mockup (--tree) over HTTPS (a test double: it keeps state in memory)",
 		Long: `serve starts a Redfish service on a self-signed certificate valid for 24 hours,
 writes the certificate to --ca-out (use it as --ca-file) and prints the endpoint.
-The user is admin; the password is in --mock-password-file, else "password" (it is a
+The user is admin; the password is in --mock-password-file or given by reference (--mock-password-from), else "password" (it is a
 test double, and says so). It stops on interrupt.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			o.User = "admin"
-			if pwFile != "" {
-				_, pw, err := filePassword{"admin", pwFile}.Get(cmd.Context())
+			if pwFile != "" || pwFrom != "" {
+				_, pw, err := fileOrRefPassword(cmd.Context(), "admin", pwFile, "mock-password-file", pwFrom, "mock-password-from")
 				if err != nil {
 					return err
 				}
 				o.Password = pw
 			} else {
 				o.Password = "password"
-				fmt.Fprintln(cmd.ErrOrStderr(), `warning: no --mock-password-file: the mock BMC accepts admin / password`)
+				fmt.Fprintln(cmd.ErrOrStderr(), `warning: no --mock-password-file or --mock-password-from: the mock BMC accepts admin / password`)
 			}
 			b, err := mockbmc.New(o)
 			if err != nil {
@@ -112,6 +112,7 @@ test double, and says so). It stops on interrupt.`,
 	serve.Flags().StringVar(&listen, "listen", "127.0.0.1:0", "address to listen on (port 0: a free loopback port)")
 	serve.Flags().StringVar(&caOut, "ca-out", "", "where to write the certificate (default: under the user config directory)")
 	serve.Flags().StringVar(&pwFile, "mock-password-file", "", "file holding admin's password (mode 0600)")
+	serve.Flags().StringVar(&pwFrom, "mock-password-from", "", "reference of admin's password instead of a file, e.g. systemd-creds:mock-admin (exclusive with --mock-password-file)")
 	serve.Flags().BoolVar(&o.NoQueries, "no-queries", false, "do not advertise or implement the query parameters of DSP0266 7.3 ("+mockbmc.TreeEmulator+" never does)")
 	serve.Flags().StringVar(&o.Tree, "tree", mockbmc.TreeRackmount, "mockup to serve: "+mockbmc.TreeRackmount+" or "+mockbmc.TreeEmulator)
 	serve.Flags().IntVar(&o.TaskPolls, "task-polls", 2, "how many times a task monitor answers 202 before the task completes")

@@ -19,6 +19,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/go-authn/secretsource"
 	"github.com/go-redfish/redfish"
 	"github.com/spf13/cobra"
 )
@@ -29,9 +30,23 @@ var userConfigDir = os.UserConfigDir
 // globals are the connection flags.
 type globals struct {
 	endpoint, user, passwordFile, caFile string
+	passwordFrom                         string
 	insecure, session, noExpand          bool
 	timeout                              time.Duration
 	output                               string
+}
+
+// fileOrRefPassword reads a one-line password from a file (mode 0600) or a
+// reference; the two are exclusive. user is only echoed back.
+func fileOrRefPassword(ctx context.Context, user, file, fileFlag, from, fromFlag string) (string, string, error) {
+	if err := exclusive(source{fileFlag, file != ""}, source{fromFlag, from != ""}); err != nil {
+		return "", "", err
+	}
+	if from != "" {
+		pw, err := refPassword(ctx, fromFlag, from)
+		return user, string(pw), err
+	}
+	return filePassword{user, file}.Get(ctx)
 }
 
 // maxPasswordFile bounds a password file.
@@ -154,10 +169,20 @@ func (g *globals) client(cmd *cobra.Command, forSession bool) (*redfish.Client, 
 		}
 		cfg.Token, cfg.SessionURI = s.Token, s.URI
 	default:
-		if g.user == "" || g.passwordFile == "" {
-			return nil, errors.New("--user and --password-file are required (or --session after `redfish session login`)")
+		if err := exclusive(source{"password-file", g.passwordFile != ""}, source{"password-from", g.passwordFrom != ""}); err != nil {
+			return nil, err
 		}
-		cfg.Credentials = filePassword{g.user, g.passwordFile}
+		if g.user == "" || (g.passwordFile == "" && g.passwordFrom == "") {
+			return nil, errors.New("--user and --password-file or --password-from are required (or --session after `redfish session login`)")
+		}
+		if g.passwordFrom != "" {
+			if _, err := secretsource.Parse(g.passwordFrom); err != nil {
+				return nil, fmt.Errorf("--password-from: %w", err)
+			}
+			cfg.Credentials = refPasswordGetter{g.user, g.passwordFrom}
+		} else {
+			cfg.Credentials = filePassword{g.user, g.passwordFile}
+		}
 		cfg.Session = forSession
 	}
 	return redfish.New(cfg)

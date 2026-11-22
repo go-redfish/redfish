@@ -54,7 +54,11 @@ func RootCmd() *cobra.Command {
 		Long: `redfish talks to the Redfish service of a BMC (DMTF DSP0266).
 
 Connection flags are global. The password comes from a file (--password-file,
-mode 0600): there is no password flag and no environment variable. A session
+mode 0600) or from a reference (--password-from, resolved by secretsource:
+systemd-creds:NAME, keychain:SERVICE/ACCOUNT, secretservice:SERVICE/ACCOUNT,
+keepassxc:URL or file:PATH; a reference holds no secret): there is no password
+flag and no environment variable. The other secrets have the same -from
+option next to their -file one. A session
 token (redfish session login) is kept in a 0600 file under the user's config
 directory and used with --session.`,
 		SilenceUsage:  true,
@@ -65,6 +69,7 @@ directory and used with --session.`,
 	f.StringVar(&g.endpoint, "endpoint", "", "the BMC's address, https://host[:port]")
 	f.StringVar(&g.user, "user", "", "user name")
 	f.StringVar(&g.passwordFile, "password-file", "", "file holding the password (mode 0600)")
+	f.StringVar(&g.passwordFrom, "password-from", "", "reference of the password instead of a file, e.g. systemd-creds:bmc-admin, keychain:SERVICE/ACCOUNT, file:PATH (not with the password file option)")
 	f.StringVar(&g.caFile, "ca-file", "", "PEM file of the CAs that sign the BMC's certificate (default: the system roots)")
 	f.BoolVar(&g.insecure, "insecure", false, "do not verify the BMC's certificate (explicit; warns on stderr)")
 	f.BoolVar(&g.session, "session", false, "use the session saved by 'redfish session login', not the password")

@@ -64,6 +64,26 @@ redfish ... raw patch /redfish/v1/Systems/1 --data '{"AssetTag":"rack-7"}' --if-
   default; `--insecure` is explicit and warns on stderr. `raw get|patch|put|post|delete|head` cover redfishtool's
   `raw`, and `root`, `versions`, `odata`, `metadata` are `raw get` of their paths.
 
+  **Secret references (no plaintext secret on disk).** Every `--X-file` secret option has an `--X-from REF` sibling
+  (`--password-from`, `--new-password-from`, `--image-password-from`, `--key-from`, `--p12-password-from`,
+  `--challenge-password-from`, `--headers-from`, `redfish mock serve --mock-password-from`), exclusive with its
+  `-file` and `-stdin` siblings (the old options keep working). A reference holds no secret, so it may sit in argv or
+  a script; the CLI (not the library, which stays standard-library only) resolves it with
+  [`go-authn/secretsource`](https://github.com/go-authn/secretsource): `systemd-creds:NAME` (a systemd credential,
+  read from `$CREDENTIALS_DIRECTORY`), `keychain:SERVICE/ACCOUNT`, `secretservice:SERVICE/ACCOUNT`, `keepassxc:URL`
+  or `file:PATH` (mode 0600). The BMC password is fetched each time it is needed and wiped after. A secret over
+  4096 bytes (secretsource's limit) is refused with a message that names the way out: for a PEM private key larger
+  than that, keep using `--key-file` or `--key-stdin`. An error never holds the secret, only the reference.
+  With systemd:
+
+  ```
+  # systemd-creds encrypt --name=bmc-admin - /etc/credstore.encrypted/bmc-admin   (once, secret on stdin)
+  # unit:  LoadCredentialEncrypted=bmc-admin:/etc/credstore.encrypted/bmc-admin
+  redfish --endpoint https://bmc.example --user admin --password-from systemd-creds:bmc-admin raw get /redfish/v1/
+  ```
+
+  `session login` still keeps its token in a 0600 file; storing it through secretsource is not done.
+
   **The BMC is not trusted with the terminal.** Everything it sends that reaches stdout or stderr (values, property
   names, error messages, a body that is not JSON, event text, the session location) has its control characters
   replaced by `?` in `-o table` and the error text, or written as `\uXXXX` in `-o json`: C0 (a tab and a newline stay in
