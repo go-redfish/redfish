@@ -232,6 +232,13 @@ func TestTelemetryWatch(t *testing.T) {
 		t.Fatalf("output:\n%s", s)
 	}
 	// events listen prints the same time series for a metric report.
+	// The first watch's SSE destination (number 5) is deleted by the mock only once
+	// that stream's handler notices the closed connection, and the next stream takes
+	// the lowest free number: seeing an SSE destination at 5 straight away can be the
+	// old one, whose stream is gone, so the tick would reach nobody (the mock gives a
+	// stream no events from before it attached, 12.1.2). Wait for the old one to go
+	// before the second stream starts, then the destination seen at 5 is the new one.
+	waitFor(t, func() bool { return !sseUp(e) })
 	var out2 syncBuffer
 	cmd2 := RootCmd()
 	cmd2.SetOut(&out2)
@@ -241,9 +248,7 @@ func TestTelemetryWatch(t *testing.T) {
 	defer cancel()
 	done2 := make(chan error, 1)
 	go func() { done2 <- cmd2.ExecuteContext(ctx) }()
-	waitFor(t, func() bool {
-		return strings.Contains(string(e.bmc.Resource("/redfish/v1/EventService/Subscriptions/6")), `"SSE"`) || strings.Contains(string(e.bmc.Resource("/redfish/v1/EventService/Subscriptions/5")), `"SSE"`)
-	})
+	waitFor(t, func() bool { return sseUp(e) })
 	e.bmc.TickTelemetry()
 	if err := <-done2; err != nil {
 		t.Fatal(err)
